@@ -15,11 +15,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "@/store/authStore";
 import { useColors } from "@/hooks/useColors";
 import spacing from "@/constants/spacing";
+import { FeatherIconName } from "@/types/icons";
 
 function SettingsItem({
   icon, label, onPress, right, destructive, colors,
 }: {
-  icon: string; label: string; onPress?: () => void;
+  icon: FeatherIconName; label: string; onPress?: () => void;
   right?: React.ReactNode; destructive?: boolean;
   colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
 }) {
@@ -29,7 +30,7 @@ function SettingsItem({
       style={[styles.settingsItem, { borderBottomColor: colors.border }]}
       activeOpacity={onPress ? 0.7 : 1}
     >
-      <Feather name={icon as any} size={18} color={destructive ? colors.danger : colors.textSecondary} />
+      <Feather name={icon} size={18} color={destructive ? colors.danger : colors.textSecondary} />
       <Text style={[styles.settingsLabel, { color: destructive ? colors.danger : colors.textPrimary }]}>{label}</Text>
       <View style={{ flexDirection: "row", alignItems: "center" }}>
         {right ?? <Feather name="chevron-right" size={16} color={colors.border} />}

@@ -1,17 +1,17 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Platform,
   StyleSheet,
   Text,
-  TextInput,
+  TextInput as RNTextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChatMessage, useChatStore } from "@/store/chatStore";
+import { ChatMessage, Conversation, useChatStore } from "@/store/chatStore";
 import { useColors } from "@/hooks/useColors";
 import spacing from "@/constants/spacing";
 
@@ -45,11 +45,52 @@ function ChatBubble({ msg, colors }: { msg: ChatMessage; colors: ReturnType<type
   );
 }
 
+function ConversationItem({
+  conv, isActive, onPress, colors,
+}: {
+  conv: Conversation; isActive: boolean; onPress: () => void;
+  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
+}) {
+  const lastMsg = conv.messages[conv.messages.length - 1];
+  const date = new Date(conv.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[
+        styles.convItem,
+        {
+          backgroundColor: isActive ? colors.primaryLight : colors.surface,
+          borderColor: isActive ? colors.primary : colors.border,
+        }
+      ]}
+    >
+      <View style={styles.convItemLeft}>
+        <Text style={[styles.convTitle, { color: isActive ? colors.primary : colors.textPrimary }]} numberOfLines={1}>
+          {conv.vehicleName ?? "Conversa"}
+        </Text>
+        <Text style={[styles.convPreview, { color: colors.textSecondary }]} numberOfLines={1}>
+          {lastMsg?.content.slice(0, 50) ?? "…"}
+        </Text>
+      </View>
+      <Text style={[styles.convDate, { color: colors.textSecondary }]}>{date}</Text>
+    </TouchableOpacity>
+  );
+}
+
 export default function ChatScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { getCurrentConversation, startConversation, sendMessage, isStreaming } = useChatStore();
+  const {
+    conversations,
+    getCurrentConversation,
+    startConversation,
+    sendMessage,
+    setCurrentId,
+    isStreaming,
+  } = useChatStore();
   const [text, setText] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
 
   const conv = getCurrentConversation();
 
@@ -65,6 +106,51 @@ export default function ChatScreen() {
   }
 
   const messages = conv?.messages ?? [];
+
+  if (showHistory) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[
+          styles.header,
+          { borderBottomColor: colors.border, paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16) },
+        ]}>
+          <TouchableOpacity onPress={() => setShowHistory(false)} style={styles.iconBtn}>
+            <Feather name="arrow-left" size={22} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={[styles.headerName, { color: colors.textPrimary }]}>Histórico de Conversas</Text>
+          <TouchableOpacity
+            onPress={() => { startConversation(); setShowHistory(false); }}
+            style={styles.iconBtn}
+            testID="new-conversation-btn"
+          >
+            <Feather name="plus" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+        <FlatList
+          data={conversations}
+          keyExtractor={c => c.id}
+          contentContainerStyle={styles.historyList}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyHistory}>
+              <Feather name="message-circle" size={48} color={colors.border} />
+              <Text style={[styles.emptyHistoryText, { color: colors.textSecondary }]}>
+                Nenhuma conversa ainda
+              </Text>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <ConversationItem
+              conv={item}
+              isActive={item.id === conv?.id}
+              onPress={() => { setCurrentId(item.id); setShowHistory(false); }}
+              colors={colors}
+            />
+          )}
+        />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -85,12 +171,16 @@ export default function ChatScreen() {
             {isStreaming ? "● digitando…" : "● online agora"}
           </Text>
         </View>
-        <TouchableOpacity onPress={() => startConversation()}>
-          <Feather name="plus-circle" size={22} color={colors.textSecondary} />
+        <TouchableOpacity onPress={() => setShowHistory(true)} style={styles.iconBtn} testID="show-history-btn">
+          <Feather name="clock" size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => startConversation()} style={styles.iconBtn} testID="new-conv-btn">
+          <Feather name="plus-circle" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
       <FlatList
+        ref={flatListRef}
         data={messages}
         keyExtractor={m => m.id}
         inverted
@@ -102,15 +192,17 @@ export default function ChatScreen() {
             <Text style={[styles.emptyChat, { color: colors.textSecondary }]}>
               Faça uma pergunta sobre seu veículo...
             </Text>
-            {QUICK_REPLIES.map(q => (
-              <TouchableOpacity
-                key={q}
-                onPress={() => handleSend(q)}
-                style={[styles.quickChip, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              >
-                <Text style={[styles.quickChipText, { color: colors.primary }]}>{q}</Text>
-              </TouchableOpacity>
-            ))}
+            <View style={styles.quickChipsCol}>
+              {QUICK_REPLIES.map(q => (
+                <TouchableOpacity
+                  key={q}
+                  onPress={() => handleSend(q)}
+                  style={[styles.quickChip, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                >
+                  <Text style={[styles.quickChipText, { color: colors.primary }]}>{q}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         }
         renderItem={({ item }) => <ChatBubble msg={item} colors={colors} />}
@@ -139,7 +231,7 @@ export default function ChatScreen() {
         styles.inputBar,
         { borderTopColor: colors.border, paddingBottom: insets.bottom + spacing.sm + (Platform.OS === "web" ? 34 : 0) },
       ]}>
-        <TextInput
+        <RNTextInput
           value={text}
           onChangeText={setText}
           placeholder="Pergunte ao especialista…"
@@ -170,6 +262,7 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: spacing.sm,
     paddingHorizontal: spacing.md, paddingBottom: spacing.sm, borderBottomWidth: 1,
   },
+  iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   aiAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   headerName: { fontSize: 15, fontFamily: "Inter_600SemiBold", fontWeight: "600" },
   headerStatus: { fontSize: 11, fontFamily: "Inter_400Regular" },
@@ -183,6 +276,7 @@ const styles = StyleSheet.create({
   typingDots: { fontSize: 18, letterSpacing: 3 },
   timestamp: { fontSize: 10, fontFamily: "Inter_400Regular", marginTop: 2 },
   emptyChat: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", marginBottom: spacing.md },
+  quickChipsCol: { gap: spacing.sm },
   quickRepliesBar: { maxHeight: 44, paddingVertical: spacing.xs },
   quickChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
   quickChipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
@@ -196,4 +290,15 @@ const styles = StyleSheet.create({
     fontSize: 15, fontFamily: "Inter_400Regular",
   },
   sendBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  historyList: { paddingHorizontal: spacing.md, paddingTop: spacing.md },
+  convItem: {
+    flexDirection: "row", alignItems: "center", gap: spacing.sm,
+    padding: spacing.md, borderRadius: 12, borderWidth: 1, marginBottom: spacing.sm,
+  },
+  convItemLeft: { flex: 1 },
+  convTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", fontWeight: "600" },
+  convPreview: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  convDate: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  emptyHistory: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 80, gap: spacing.md },
+  emptyHistoryText: { fontSize: 15, fontFamily: "Inter_400Regular" },
 });

@@ -62,8 +62,10 @@ export function Button({
 
   return (
     <TouchableOpacity
-      onPress={handlePress}
+      onPress={disabled || loading ? undefined : handlePress}
       disabled={disabled || loading}
+      accessibilityState={{ disabled: disabled || loading }}
+      aria-disabled={disabled || loading}
       activeOpacity={0.75}
       style={[
         styles.base,

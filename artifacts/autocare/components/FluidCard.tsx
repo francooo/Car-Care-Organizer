@@ -3,6 +3,7 @@ import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { FluidReading, FluidType } from "@/store/vehicleStore";
 import { useColors } from "@/hooks/useColors";
+import { FeatherIconName } from "@/types/icons";
 import { FluidLevelBar } from "./ui/FluidLevelBar";
 import { StatusBadge } from "./ui/StatusBadge";
 import spacing from "@/constants/spacing";
@@ -21,7 +22,7 @@ const FLUID_NAMES: Record<FluidType, string> = {
   battery: "Bateria",
 };
 
-const FLUID_ICONS: Record<FluidType, string> = {
+const FLUID_ICONS: Record<FluidType, FeatherIconName> = {
   oil: "droplet",
   coolant: "thermometer",
   brake: "disc",
@@ -59,7 +60,7 @@ export function FluidCard({ fluid, onGuidePress }: FluidCardProps) {
       <View style={styles.header}>
         <View style={styles.leftRow}>
           <View style={[styles.iconBox, { backgroundColor: iconBg }]}>
-            <Feather name={FLUID_ICONS[fluid.type] as any} size={20} color={iconColor} />
+            <Feather name={FLUID_ICONS[fluid.type]} size={20} color={iconColor} />
           </View>
           <View>
             <Text style={[styles.name, { color: colors.textPrimary }]}>{FLUID_NAMES[fluid.type]}</Text>
@@ -74,14 +75,14 @@ export function FluidCard({ fluid, onGuidePress }: FluidCardProps) {
 
       <FluidLevelBar levelPct={fluid.levelPct} status={fluid.status} />
 
-      {fluid.spec && (
+      {fluid.spec ? (
         <View style={[styles.specBox, { backgroundColor: colors.surface }]}>
           <Text style={[styles.specText, { color: colors.textSecondary }]}>
             {fluid.spec}
             {fluid.amountLiters ? ` · Adicionar ${fluid.amountLiters}L` : ""}
           </Text>
         </View>
-      )}
+      ) : null}
 
       {fluid.status !== "ok" && (
         <TouchableOpacity
@@ -99,60 +100,18 @@ export function FluidCard({ fluid, onGuidePress }: FluidCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    borderWidth: 1.5,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    gap: spacing.sm,
+    borderRadius: 16, borderWidth: 1.5, padding: spacing.md, marginBottom: spacing.md, gap: spacing.sm,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  leftRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    flex: 1,
-  },
-  iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  name: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-    fontWeight: "600",
-  },
-  level: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    marginTop: 2,
-  },
-  specBox: {
-    padding: 10,
-    borderRadius: 10,
-  },
-  specText: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-  },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  leftRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flex: 1 },
+  iconBox: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  name: { fontSize: 15, fontFamily: "Inter_600SemiBold", fontWeight: "600" },
+  level: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
+  specBox: { padding: 10, borderRadius: 10 },
+  specText: { fontSize: 13, fontFamily: "Inter_400Regular" },
   guideBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    justifyContent: "center",
+    flexDirection: "row", alignItems: "center", gap: spacing.xs,
+    padding: 10, borderRadius: 10, borderWidth: 1, justifyContent: "center",
   },
-  guideBtnText: {
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-    fontWeight: "600",
-  },
+  guideBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold", fontWeight: "600" },
 });

@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FluidType } from "@/store/vehicleStore";
+import { FeatherIconName } from "@/types/icons";
 import { useColors } from "@/hooks/useColors";
 import { AlertCard } from "@/components/ui/AlertCard";
 import spacing from "@/constants/spacing";
@@ -22,7 +23,7 @@ interface Step {
   title: string;
   instruction: string;
   warning?: string;
-  icon: string;
+  icon: FeatherIconName;
 }
 
 const FLUID_STEPS: Record<string, Step[]> = {
@@ -244,7 +245,7 @@ export default function GuideScreen() {
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 + (Platform.OS === "web" ? 34 : 0) }]} showsVerticalScrollIndicator={false}>
         <Animated.View style={[styles.stepContent, { opacity: fadeAnim }]}>
           <View style={[styles.animationBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Feather name={step.icon as any} size={72} color={colors.primary} />
+            <Feather name={step.icon} size={72} color={colors.primary} />
           </View>
           <Text style={[styles.stepNumber, { color: colors.textSecondary }]}>Passo {currentStep + 1} de {steps.length}</Text>
           <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>{step.title}</Text>

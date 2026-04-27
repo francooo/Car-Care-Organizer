@@ -6,20 +6,29 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Modal,
   Platform,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useVehicleStore } from "@/store/vehicleStore";
+import { Vehicle, useVehicleStore } from "@/store/vehicleStore";
 import { useColors } from "@/hooks/useColors";
 import spacing from "@/constants/spacing";
 
 type ScanState = "no_permission" | "starting" | "waiting" | "analyzing" | "detected" | "error";
 
 const BASE_URL = `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`;
+
+const DETECTION_POINTS = [
+  { topPct: 28, leftPct: 22, status: "warning" } as const,
+  { topPct: 48, leftPct: 58, status: "critical" } as const,
+  { topPct: 62, leftPct: 38, status: "ok" } as const,
+];
 
 export default function ScannerScreen() {
   const colors = useColors();
@@ -29,9 +38,10 @@ export default function ScannerScreen() {
 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanState, setScanState] = useState<ScanState>("starting");
-  const [selectedId, setSelectedId] = useState(vehicleId ?? vehicles[0]?.id);
+  const [selectedId, setSelectedId] = useState<string | undefined>(vehicleId ?? vehicles[0]?.id);
   const [confidence, setConfidence] = useState(0);
   const [errorMsg, setErrorMsg] = useState("");
+  const [showVehiclePicker, setShowVehiclePicker] = useState(false);
 
   const cameraRef = useRef<CameraView>(null);
   const scanLineAnim = useRef(new Animated.Value(0)).current;
@@ -80,7 +90,7 @@ export default function ScannerScreen() {
     try {
       setScanState("analyzing");
       const photo = await cameraRef.current?.takePictureAsync({ base64: true, quality: 0.6 });
-      if (!photo?.base64) throw new Error("No image");
+      if (!photo?.base64) throw new Error("No image captured");
       await sendToBackend(photo.base64);
     } catch {
       setScanState("error");
@@ -104,16 +114,18 @@ export default function ScannerScreen() {
         body: JSON.stringify({ image: base64, vehicleId: selectedId }),
       });
       if (!res.ok) throw new Error("API error");
-      const data = await res.json() as {
-        fluids: Array<{ type: string; levelPct: number; status: string; spec: string; amountLiters?: number }>;
-        overallStatus: string;
+
+      type ScanApiResponse = {
+        fluids: Vehicle["fluids"];
+        overallStatus: Vehicle["overallStatus"];
         confidence: number;
       };
+      const data = await res.json() as ScanApiResponse;
 
       if (selectedId) {
         await updateVehicle(selectedId, {
-          fluids: data.fluids as any,
-          overallStatus: data.overallStatus as any,
+          fluids: data.fluids,
+          overallStatus: data.overallStatus,
         });
       }
       setConfidence(data.confidence ?? 94);
@@ -146,10 +158,7 @@ export default function ScannerScreen() {
           O AutoCare AI precisa da câmera para fotografar o motor e fazer o diagnóstico de fluidos.
         </Text>
         {permission && !permission.canAskAgain && Platform.OS !== "web" ? (
-          <TouchableOpacity
-            style={[styles.permBtn, { backgroundColor: colors.primary }]}
-            onPress={() => {}}
-          >
+          <TouchableOpacity style={[styles.permBtn, { backgroundColor: colors.primary }]}>
             <Text style={styles.permBtnText}>Abrir Configurações</Text>
           </TouchableOpacity>
         ) : (
@@ -192,7 +201,11 @@ export default function ScannerScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity style={[styles.vehicleBadge, { backgroundColor: "rgba(0,0,0,0.55)" }]}>
+        <TouchableOpacity
+          style={[styles.vehicleBadge, { backgroundColor: "rgba(0,0,0,0.55)" }]}
+          onPress={() => setShowVehiclePicker(true)}
+          testID="vehicle-picker-btn"
+        >
           <Text style={styles.vehicleBadgeText} numberOfLines={1}>
             {selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}` : "Selecionar"}
           </Text>
@@ -213,7 +226,7 @@ export default function ScannerScreen() {
         )}
 
         <View style={styles.corners}>
-          {[styles.cornerTL, styles.cornerTR, styles.cornerBL, styles.cornerBR].map((s, i) => (
+          {([styles.cornerTL, styles.cornerTR, styles.cornerBL, styles.cornerBR] as object[]).map((s, i) => (
             <View key={i} style={[styles.corner, s, { borderColor: colors.primary }]} />
           ))}
         </View>
@@ -233,15 +246,12 @@ export default function ScannerScreen() {
 
         {scanState === "detected" && (
           <>
-            {[
-              { top: "28%", left: "22%", status: "warning" },
-              { top: "48%", left: "58%", status: "critical" },
-              { top: "62%", left: "38%", status: "ok" },
-            ].map((p, i) => (
+            {DETECTION_POINTS.map((p, i) => (
               <View key={i} style={[
                 styles.detectionPoint,
                 {
-                  top: p.top as any, left: p.left as any,
+                  top: `${p.topPct}%`,
+                  left: `${p.leftPct}%`,
                   backgroundColor: p.status === "ok" ? colors.success : p.status === "warning" ? colors.warning : colors.danger,
                 }
               ]} />
@@ -306,6 +316,36 @@ export default function ScannerScreen() {
           <Text style={[styles.galleryBtnText, { color: colors.primary }]}>Usar foto da galeria</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal visible={showVehiclePicker} transparent animationType="slide">
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowVehiclePicker(false)}>
+          <View style={[styles.vehiclePickerSheet, { backgroundColor: colors.background }]}>
+            <Text style={[styles.pickerTitle, { color: colors.textPrimary }]}>Selecionar veículo</Text>
+            <ScrollView>
+              {vehicles.map(v => (
+                <TouchableOpacity
+                  key={v.id}
+                  onPress={() => { setSelectedId(v.id); setShowVehiclePicker(false); setScanState("waiting"); }}
+                  style={[
+                    styles.pickerItem,
+                    {
+                      backgroundColor: v.id === selectedId ? colors.primaryLight : colors.surface,
+                      borderColor: v.id === selectedId ? colors.primary : colors.border,
+                    }
+                  ]}
+                >
+                  <Text style={[styles.pickerItemText, { color: v.id === selectedId ? colors.primary : colors.textPrimary }]}>
+                    {v.make} {v.model} · {v.plate}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity onPress={() => setShowVehiclePicker(false)} style={[styles.pickerCancel, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.pickerCancelText, { color: colors.textSecondary }]}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -338,24 +378,20 @@ const styles = StyleSheet.create({
   scanLine: { position: "absolute", left: 0, right: 0, height: 2, top: 20 },
   analyzingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    alignItems: "center", justifyContent: "center", gap: 16,
+    backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center", gap: 16,
   },
   analyzingText: { color: "#fff", fontSize: 16, fontFamily: "Inter_500Medium" },
   detectionPoint: {
-    position: "absolute", width: 16, height: 16, borderRadius: 8,
-    borderWidth: 2, borderColor: "#fff",
+    position: "absolute", width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: "#fff",
   },
   errorOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    alignItems: "center", justifyContent: "center", gap: 12,
+    backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center", gap: 12,
   },
   errorText: { color: "#fff", fontSize: 15, fontFamily: "Inter_400Regular", textAlign: "center", paddingHorizontal: 32 },
   bottomPanel: { padding: spacing.md, gap: spacing.sm },
   detectedCard: {
-    flexDirection: "row", alignItems: "center", gap: spacing.sm,
-    padding: spacing.md, borderRadius: 12,
+    flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.md, borderRadius: 12,
   },
   detectedLabel: { fontSize: 11, fontFamily: "Inter_400Regular" },
   detectedName: { fontSize: 14, fontFamily: "Inter_600SemiBold", fontWeight: "600", marginTop: 2 },
@@ -363,8 +399,7 @@ const styles = StyleSheet.create({
   confidencePct: { fontSize: 22, fontFamily: "Inter_700Bold", fontWeight: "700" },
   confidenceLabel: { fontSize: 10, fontFamily: "Inter_400Regular" },
   mainBtn: {
-    height: 52, borderRadius: 12,
-    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm,
+    height: 52, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm,
   },
   mainBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold", fontWeight: "600" },
   galleryBtn: { height: 44, alignItems: "center", justifyContent: "center" },
@@ -375,4 +410,20 @@ const styles = StyleSheet.create({
   permBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold", fontWeight: "600" },
   galleryAlt: { marginTop: spacing.sm },
   galleryAltText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  modalBackdrop: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end",
+  },
+  vehiclePickerSheet: {
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: spacing.lg, maxHeight: "70%",
+  },
+  pickerTitle: { fontSize: 18, fontFamily: "Inter_600SemiBold", fontWeight: "600", marginBottom: spacing.md },
+  pickerItem: {
+    padding: spacing.md, borderRadius: 12, marginBottom: spacing.sm, borderWidth: 1.5,
+  },
+  pickerItemText: { fontSize: 15, fontFamily: "Inter_500Medium" },
+  pickerCancel: {
+    height: 50, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: spacing.sm,
+  },
+  pickerCancelText: { fontSize: 16, fontFamily: "Inter_500Medium" },
 });

@@ -45,15 +45,28 @@ router.post("/scan", async (req, res) => {
     }
 
     const result = await analyzeMotorImage(image);
-    res.json({
-      scanId: Date.now().toString(36),
+    const scanId = Date.now().toString(36);
+    const scan = {
+      scanId,
       vehicleId: vehicleId ?? "unknown",
       ...result,
       scannedAt: new Date().toISOString(),
-    });
+    };
+    scansDb[scanId] = scan;
+    res.json(scan);
   } catch (err) {
     res.status(500).json({ error: "Scan failed", detail: String(err) });
   }
+});
+
+// ── Scan history lookup ───────────────────────────────────────
+const scansDb: Record<string, object> = {};
+
+router.get("/scan/:id", (req, res) => {
+  const { id } = req.params;
+  const scan = scansDb[id];
+  if (!scan) { res.status(404).json({ error: "scan not found" }); return; }
+  res.json(scan);
 });
 
 // ── Chat streaming (SSE) ──────────────────────────────────────
