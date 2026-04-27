@@ -92,6 +92,7 @@ export default function AddVehicleScreen() {
   const [photoUri, setPhotoUri] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [showErrorToast, setShowErrorToast] = useState(false);
   const [showMake, setShowMake] = useState(false);
   const [showModel, setShowModel] = useState(false);
   const [showYear, setShowYear] = useState(false);
@@ -140,7 +141,7 @@ export default function AddVehicleScreen() {
       await loadVehicles(true);
       setShowToast(true);
     } catch {
-      Alert.alert("Erro", "Não foi possível salvar o veículo.");
+      setShowErrorToast(true);
     } finally {
       setLoading(false);
     }
@@ -222,6 +223,13 @@ export default function AddVehicleScreen() {
         message="Veículo adicionado com sucesso!"
         duration={1800}
         onHide={() => { setShowToast(false); router.back(); }}
+      />
+      <Toast
+        type="error"
+        visible={showErrorToast}
+        message="Não foi possível salvar o veículo. Tente novamente."
+        duration={3000}
+        onHide={() => setShowErrorToast(false)}
       />
     </View>
   );

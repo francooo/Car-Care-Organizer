@@ -9,9 +9,10 @@ interface ToastProps {
   message: string;
   duration?: number;
   onHide?: () => void;
+  type?: "success" | "error";
 }
 
-export function Toast({ visible, message, duration = 2000, onHide }: ToastProps) {
+export function Toast({ visible, message, duration = 2000, onHide, type = "success" }: ToastProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const opacity = useRef(new Animated.Value(0)).current;
@@ -46,19 +47,22 @@ export function Toast({ visible, message, duration = 2000, onHide }: ToastProps)
 
   if (!visible) return null;
 
+  const backgroundColor = type === "error" ? colors.danger : colors.success;
+  const iconName = type === "error" ? "alert-circle" : "check-circle";
+
   return (
     <Animated.View
       style={[
         styles.container,
         {
-          backgroundColor: colors.success,
+          backgroundColor,
           bottom: insets.bottom + 24,
           opacity,
           transform: [{ translateY }],
         },
       ]}
     >
-      <Feather name="check-circle" size={18} color="#fff" />
+      <Feather name={iconName} size={18} color="#fff" />
       <Text style={styles.message}>{message}</Text>
     </Animated.View>
   );

@@ -83,6 +83,7 @@ export default function EditVehicleScreen() {
   const [currentKm, setCurrentKm] = useState(vehicle?.currentKm?.toString() ?? "");
   const [loading, setLoading] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [showErrorToast, setShowErrorToast] = useState(false);
   const [historyDates, setHistoryDates] = useState<Partial<Record<FluidType, string>>>({});
   const [schedule, setSchedule] = useState<Record<FluidType, MaintenanceReminder>>(
     () => buildDefaultSchedule(vehicle?.maintenanceSchedule)
@@ -196,7 +197,7 @@ export default function EditVehicleScreen() {
       await loadVehicles(true);
       setShowToast(true);
     } catch {
-      Alert.alert("Erro", "Não foi possível atualizar o veículo.");
+      setShowErrorToast(true);
     } finally {
       setLoading(false);
     }
@@ -501,6 +502,13 @@ export default function EditVehicleScreen() {
         message="Veículo atualizado com sucesso"
         duration={1800}
         onHide={() => { setShowToast(false); router.back(); }}
+      />
+      <Toast
+        type="error"
+        visible={showErrorToast}
+        message="Não foi possível atualizar o veículo. Tente novamente."
+        duration={3000}
+        onHide={() => setShowErrorToast(false)}
       />
     </View>
   );
