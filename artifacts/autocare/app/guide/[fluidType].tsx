@@ -1,11 +1,12 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Dimensions,
+  PanResponder,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -19,11 +20,14 @@ import { useColors } from "@/hooks/useColors";
 import { AlertCard } from "@/components/ui/AlertCard";
 import spacing from "@/constants/spacing";
 
+const SCREEN_WIDTH = Dimensions.get("window").width;
+
 interface Step {
   title: string;
   instruction: string;
   warning?: string;
   icon: FeatherIconName;
+  color?: string;
 }
 
 const FLUID_STEPS: Record<string, Step[]> = {
@@ -139,6 +143,45 @@ const FLUID_NAMES: Record<string, string> = {
   battery: "Bateria",
 };
 
+function StepIconAnimation({ icon, color }: { icon: FeatherIconName; color: string }) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.12, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
+      ])
+    );
+    const rotate = Animated.loop(
+      Animated.sequence([
+        Animated.timing(rotateAnim, { toValue: 1, duration: 2400, useNativeDriver: true }),
+        Animated.timing(rotateAnim, { toValue: 0, duration: 0, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    rotate.start();
+    return () => {
+      pulse.stop();
+      rotate.stop();
+    };
+  }, [icon]);
+
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  const shouldRotate = icon === "rotate-ccw" || icon === "droplet";
+
+  return (
+    <Animated.View style={{ transform: [{ scale: pulseAnim }, shouldRotate ? { rotate: spin } : { rotate: "0deg" }] }}>
+      <Feather name={icon} size={80} color={color} />
+    </Animated.View>
+  );
+}
+
 export default function GuideScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -149,20 +192,31 @@ export default function GuideScreen() {
 
   const [currentStep, setCurrentStep] = useState(0);
   const [completed, setCompleted] = useState(false);
+
+  const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  function animateTransition(callback: () => void) {
-    Animated.sequence([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
-      Animated.timing(fadeAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
-    ]).start();
-    setTimeout(callback, 150);
+  function animateToStep(nextIndex: number, direction: "left" | "right") {
+    const outDir = direction === "left" ? -SCREEN_WIDTH : SCREEN_WIDTH;
+    const inDir = direction === "left" ? SCREEN_WIDTH : -SCREEN_WIDTH;
+
+    Animated.parallel([
+      Animated.timing(slideAnim, { toValue: outDir, duration: 200, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start(() => {
+      setCurrentStep(nextIndex);
+      slideAnim.setValue(inDir);
+      Animated.parallel([
+        Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 100, friction: 12 }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]).start();
+    });
   }
 
   function goNext() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (currentStep < steps.length - 1) {
-      animateTransition(() => setCurrentStep(s => s + 1));
+      animateToStep(currentStep + 1, "left");
     } else {
       setCompleted(true);
     }
@@ -170,9 +224,28 @@ export default function GuideScreen() {
 
   function goPrev() {
     if (currentStep > 0) {
-      animateTransition(() => setCurrentStep(s => s - 1));
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      animateToStep(currentStep - 1, "right");
     }
   }
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > 12 && Math.abs(gs.dy) < 60,
+      onPanResponderMove: (_, gs) => {
+        slideAnim.setValue(gs.dx);
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dx < -50) {
+          goNext();
+        } else if (gs.dx > 50) {
+          goPrev();
+        } else {
+          Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true }).start();
+        }
+      },
+    })
+  ).current;
 
   async function handleSave() {
     try {
@@ -237,29 +310,86 @@ export default function GuideScreen() {
       <View style={[styles.progressBar, { paddingHorizontal: spacing.xl, paddingVertical: spacing.sm }]}>
         <View style={styles.progressSegments}>
           {steps.map((_, i) => (
-            <View key={i} style={[styles.segment, { flex: 1, backgroundColor: i <= currentStep ? colors.primary : colors.border, marginRight: i < steps.length - 1 ? 4 : 0 }]} />
+            <Animated.View
+              key={i}
+              style={[
+                styles.segment,
+                {
+                  flex: 1,
+                  backgroundColor: i <= currentStep ? colors.primary : colors.border,
+                  marginRight: i < steps.length - 1 ? 4 : 0,
+                },
+              ]}
+            />
           ))}
         </View>
+        <Text style={[styles.stepCounter, { color: colors.textSecondary }]}>
+          {currentStep + 1} / {steps.length}
+        </Text>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 + (Platform.OS === "web" ? 34 : 0) }]} showsVerticalScrollIndicator={false}>
-        <Animated.View style={[styles.stepContent, { opacity: fadeAnim }]}>
+      <View style={styles.swipeArea} {...panResponder.panHandlers}>
+        <Animated.View
+          style={[
+            styles.stepContent,
+            {
+              transform: [{ translateX: slideAnim }],
+              opacity: fadeAnim,
+            },
+          ]}
+        >
           <View style={[styles.animationBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Feather name={step.icon} size={72} color={colors.primary} />
+            <StepIconAnimation key={`${currentStep}-${step.icon}`} icon={step.icon} color={colors.primary} />
+            <View style={[styles.iconRing, { borderColor: colors.primary + "25" }]} />
           </View>
-          <Text style={[styles.stepNumber, { color: colors.textSecondary }]}>Passo {currentStep + 1} de {steps.length}</Text>
+
           <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>{step.title}</Text>
           <Text style={[styles.stepInstruction, { color: colors.textSecondary }]}>{step.instruction}</Text>
           {step.warning && <AlertCard message={step.warning} type="warning" />}
-        </Animated.View>
-      </ScrollView>
 
-      <View style={[styles.navButtons, { borderTopColor: colors.border, paddingBottom: insets.bottom + spacing.md + (Platform.OS === "web" ? 34 : 0), backgroundColor: colors.background }]}>
-        <TouchableOpacity onPress={goPrev} disabled={currentStep === 0} style={[styles.navBtn, { backgroundColor: colors.surface, borderColor: colors.border, opacity: currentStep === 0 ? 0.4 : 1 }]} activeOpacity={0.8} testID="prev-step-btn">
+          <View style={styles.swipeHint}>
+            <Feather name="chevron-left" size={14} color={colors.textSecondary} style={{ opacity: currentStep === 0 ? 0.2 : 0.6 }} />
+            <Text style={[styles.swipeHintText, { color: colors.textSecondary }]}>deslize para navegar</Text>
+            <Feather name="chevron-right" size={14} color={colors.textSecondary} style={{ opacity: currentStep === steps.length - 1 ? 0.2 : 0.6 }} />
+          </View>
+        </Animated.View>
+      </View>
+
+      <View
+        style={[
+          styles.navButtons,
+          {
+            borderTopColor: colors.border,
+            paddingBottom: insets.bottom + spacing.md + (Platform.OS === "web" ? 34 : 0),
+            backgroundColor: colors.background,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={goPrev}
+          disabled={currentStep === 0}
+          style={[styles.navBtn, { backgroundColor: colors.surface, borderColor: colors.border, opacity: currentStep === 0 ? 0.35 : 1 }]}
+          activeOpacity={0.8}
+          testID="prev-step-btn"
+        >
+          <Feather name="arrow-left" size={18} color={colors.textPrimary} style={{ marginRight: 6 }} />
           <Text style={[styles.navBtnText, { color: colors.textPrimary }]}>Anterior</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={goNext} style={[styles.navBtn, styles.nextBtn, { backgroundColor: colors.primary }]} activeOpacity={0.85} testID="next-step-btn">
-          <Text style={[styles.navBtnText, { color: "#fff" }]}>{currentStep === steps.length - 1 ? "✓ Concluir" : "Próximo"}</Text>
+        <TouchableOpacity
+          onPress={goNext}
+          style={[styles.navBtn, styles.nextBtn, { backgroundColor: colors.primary }]}
+          activeOpacity={0.85}
+          testID="next-step-btn"
+        >
+          <Text style={[styles.navBtnText, { color: "#fff" }]}>
+            {currentStep === steps.length - 1 ? "Concluir" : "Próximo"}
+          </Text>
+          <Feather
+            name={currentStep === steps.length - 1 ? "check" : "arrow-right"}
+            size={18}
+            color="#fff"
+            style={{ marginLeft: 6 }}
+          />
         </TouchableOpacity>
       </View>
     </View>
@@ -268,23 +398,83 @@ export default function GuideScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md, paddingBottom: spacing.sm, borderBottomWidth: 1, justifyContent: "space-between" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    justifyContent: "space-between",
+  },
   backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 18, fontFamily: "Inter_600SemiBold", fontWeight: "600" },
-  progressBar: {},
+  progressBar: { gap: 4 },
   progressSegments: { flexDirection: "row", height: 4, borderRadius: 2 },
   segment: { height: 4, borderRadius: 2 },
-  content: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg },
-  stepContent: { gap: spacing.md },
-  animationBox: { height: 200, borderRadius: 16, borderWidth: 1, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
-  stepNumber: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  stepCounter: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "right" },
+  swipeArea: { flex: 1, overflow: "hidden" },
+  stepContent: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    gap: spacing.md,
+  },
+  animationBox: {
+    height: 200,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.sm,
+    position: "relative",
+    overflow: "hidden",
+  },
+  iconRing: {
+    position: "absolute",
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 2,
+  },
   stepTitle: { fontSize: 22, fontFamily: "Inter_700Bold", fontWeight: "700", lineHeight: 30 },
   stepInstruction: { fontSize: 16, fontFamily: "Inter_400Regular", lineHeight: 26 },
-  navButtons: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.xl, paddingTop: spacing.md, borderTopWidth: 1 },
-  navBtn: { flex: 1, height: 52, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  swipeHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: spacing.sm,
+  },
+  swipeHintText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  navButtons: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: "row",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+  },
+  navBtn: {
+    flex: 1,
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+  },
   nextBtn: { borderWidth: 0 },
   navBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold", fontWeight: "600" },
-  completedContent: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: spacing.lg },
+  completedContent: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.xl,
+    gap: spacing.lg,
+  },
   checkCircle: { width: 100, height: 100, borderRadius: 50, alignItems: "center", justifyContent: "center" },
   completedTitle: { fontSize: 26, fontFamily: "Inter_700Bold", fontWeight: "700", textAlign: "center" },
   completedSub: { fontSize: 15, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 24 },

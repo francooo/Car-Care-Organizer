@@ -122,12 +122,14 @@ export default function AddVehicleScreen() {
     if (!make || !model || !year || !version) {
       const msg = "Preencha todos os campos obrigatórios: Marca, Modelo, Ano e Versão.";
       setFormError(msg);
+      Alert.alert("Campos obrigatórios", msg);
       scrollRef.current?.scrollTo({ y: 0, animated: true });
       return;
     }
     if (!plateValid) {
       const msg = "Placa inválida. Use o formato ABC-1234 (antigo) ou ABC-1D23 (Mercosul).";
       setFormError(msg);
+      Alert.alert("Placa inválida", msg);
       scrollRef.current?.scrollTo({ y: 0, animated: true });
       return;
     }
