@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
-import { FluidStatus } from "@/context/VehicleContext";
+import { FluidStatus } from "@/store/vehicleStore";
 import { useColors } from "@/hooks/useColors";
 
 interface FluidLevelBarProps {

@@ -14,25 +14,32 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { AuthProvider, useAuth } from "@/context/AuthContext";
-import { VehicleProvider } from "@/context/VehicleContext";
-import { ChatProvider } from "@/context/ChatContext";
-import { HistoryProvider } from "@/context/HistoryContext";
+import { useAuthStore } from "@/store/authStore";
+import { useVehicleStore } from "@/store/vehicleStore";
+import { useChatStore } from "@/store/chatStore";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, loadSession } = useAuthStore();
+  const { loadVehicles } = useVehicleStore();
+  const { loadConversations } = useChatStore();
   const segments = useSegments();
 
   useEffect(() => {
+    loadSession();
+    loadVehicles();
+    loadConversations();
+  }, []);
+
+  useEffect(() => {
     if (isLoading) return;
-    const inAuthGroup = segments[0] === "(auth)";
-    if (!user && !inAuthGroup) {
+    const inAuth = segments[0] === "(auth)";
+    if (!user && !inAuth) {
       router.replace("/(auth)/login");
-    } else if (user && inAuthGroup) {
+    } else if (user && inAuth) {
       router.replace("/(tabs)");
     }
   }, [user, isLoading, segments]);
@@ -76,17 +83,9 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
-              <AuthProvider>
-                <VehicleProvider>
-                  <ChatProvider>
-                    <HistoryProvider>
-                      <AuthGuard>
-                        <RootLayoutNav />
-                      </AuthGuard>
-                    </HistoryProvider>
-                  </ChatProvider>
-                </VehicleProvider>
-              </AuthProvider>
+              <AuthGuard>
+                <RootLayoutNav />
+              </AuthGuard>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>

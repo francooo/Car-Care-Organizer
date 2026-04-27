@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { create } from "zustand";
 
 export type FluidStatus = "ok" | "warning" | "critical";
 export type FluidType = "oil" | "coolant" | "brake" | "power" | "washer" | "battery";
@@ -20,21 +20,11 @@ export interface Vehicle {
   version: string;
   plate: string;
   nickname?: string;
-  photoUrl?: string;
+  photoUri?: string;
   fluids?: FluidReading[];
   overallStatus?: FluidStatus;
   createdAt: string;
 }
-
-interface VehicleContextType {
-  vehicles: Vehicle[];
-  addVehicle: (v: Omit<Vehicle, "id" | "createdAt">) => Promise<Vehicle>;
-  updateVehicle: (id: string, v: Partial<Vehicle>) => Promise<void>;
-  deleteVehicle: (id: string) => Promise<void>;
-  getVehicle: (id: string) => Vehicle | undefined;
-}
-
-const VehicleContext = createContext<VehicleContextType | null>(null);
 
 const STORAGE_KEY = "@autocare:vehicles";
 
@@ -70,7 +60,7 @@ const MOCK_VEHICLES: Vehicle[] = [
       { type: "oil", levelPct: 20, status: "critical", spec: "5W-30 Semissintético", amountLiters: 2.5 },
       { type: "coolant", levelPct: 35, status: "critical", spec: "HOAT Verde", amountLiters: 1.0 },
       { type: "brake", levelPct: 65, status: "ok", spec: "DOT-3" },
-      { type: "power", levelPct: 0, status: "ok", spec: "N/A" },
+      { type: "power", levelPct: 85, status: "ok", spec: "N/A" },
       { type: "washer", levelPct: 50, status: "ok", spec: "Água destilada" },
       { type: "battery", levelPct: 60, status: "warning", spec: "12V / 45Ah" },
     ],
@@ -78,64 +68,56 @@ const MOCK_VEHICLES: Vehicle[] = [
   },
 ];
 
-export function VehicleProvider({ children }: { children: React.ReactNode }) {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+interface VehicleState {
+  vehicles: Vehicle[];
+  loaded: boolean;
+  loadVehicles: () => Promise<void>;
+  addVehicle: (v: Omit<Vehicle, "id" | "createdAt">) => Promise<Vehicle>;
+  updateVehicle: (id: string, v: Partial<Vehicle>) => Promise<void>;
+  deleteVehicle: (id: string) => Promise<void>;
+  getVehicle: (id: string) => Vehicle | undefined;
+}
 
-  useEffect(() => {
-    loadVehicles();
-  }, []);
+export const useVehicleStore = create<VehicleState>((set, get) => ({
+  vehicles: [],
+  loaded: false,
 
-  async function loadVehicles() {
+  loadVehicles: async () => {
+    if (get().loaded) return;
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (raw) {
-        setVehicles(JSON.parse(raw));
-      } else {
-        setVehicles(MOCK_VEHICLES);
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_VEHICLES));
+        set({ vehicles: JSON.parse(raw), loaded: true });
+        return;
       }
-    } catch {
-      setVehicles(MOCK_VEHICLES);
-    }
-  }
+    } catch {}
+    set({ vehicles: MOCK_VEHICLES, loaded: true });
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_VEHICLES));
+  },
 
-  async function saveVehicles(updated: Vehicle[]) {
-    setVehicles(updated);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  }
-
-  const addVehicle = useCallback(async (v: Omit<Vehicle, "id" | "createdAt">) => {
-    const newVehicle: Vehicle = {
+  addVehicle: async (v) => {
+    const newV: Vehicle = {
       ...v,
       id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
       createdAt: new Date().toISOString(),
     };
-    await saveVehicles([newVehicle, ...vehicles]);
-    return newVehicle;
-  }, [vehicles]);
+    const updated = [newV, ...get().vehicles];
+    set({ vehicles: updated });
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    return newV;
+  },
 
-  const updateVehicle = useCallback(async (id: string, v: Partial<Vehicle>) => {
-    const updated = vehicles.map(veh => veh.id === id ? { ...veh, ...v } : veh);
-    await saveVehicles(updated);
-  }, [vehicles]);
+  updateVehicle: async (id, v) => {
+    const updated = get().vehicles.map(veh => veh.id === id ? { ...veh, ...v } : veh);
+    set({ vehicles: updated });
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  },
 
-  const deleteVehicle = useCallback(async (id: string) => {
-    await saveVehicles(vehicles.filter(v => v.id !== id));
-  }, [vehicles]);
+  deleteVehicle: async (id) => {
+    const updated = get().vehicles.filter(v => v.id !== id);
+    set({ vehicles: updated });
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  },
 
-  const getVehicle = useCallback((id: string) => {
-    return vehicles.find(v => v.id === id);
-  }, [vehicles]);
-
-  return (
-    <VehicleContext.Provider value={{ vehicles, addVehicle, updateVehicle, deleteVehicle, getVehicle }}>
-      {children}
-    </VehicleContext.Provider>
-  );
-}
-
-export function useVehicles() {
-  const ctx = useContext(VehicleContext);
-  if (!ctx) throw new Error("useVehicles must be used within VehicleProvider");
-  return ctx;
-}
+  getVehicle: (id) => get().vehicles.find(v => v.id === id),
+}));

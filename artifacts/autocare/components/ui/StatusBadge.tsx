@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { FluidStatus } from "@/context/VehicleContext";
+import { FluidStatus } from "@/store/vehicleStore";
 import { useColors } from "@/hooks/useColors";
 
 interface StatusBadgeProps {

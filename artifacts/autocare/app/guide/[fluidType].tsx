@@ -12,8 +12,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { FluidType } from "@/context/VehicleContext";
-import { useHistory } from "@/context/HistoryContext";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { FluidType } from "@/store/vehicleStore";
 import { useColors } from "@/hooks/useColors";
 import { AlertCard } from "@/components/ui/AlertCard";
 import spacing from "@/constants/spacing";
@@ -142,7 +142,6 @@ export default function GuideScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { fluidType } = useLocalSearchParams<{ fluidType: FluidType }>();
-  const { addRecord } = useHistory();
 
   const steps = FLUID_STEPS[fluidType ?? "oil"] ?? FLUID_STEPS.oil;
   const fluidName = FLUID_NAMES[fluidType ?? "oil"] ?? "Fluido";
@@ -175,29 +174,27 @@ export default function GuideScreen() {
   }
 
   async function handleSave() {
-    await addRecord({
-      vehicleId: "v1",
-      vehicleName: "Meu Veículo",
-      vehiclePlate: "—",
-      fluidsHandled: [fluidType ?? "oil"],
-      status: "completed",
-    });
+    try {
+      const raw = await AsyncStorage.getItem("@autocare:history");
+      const history = raw ? JSON.parse(raw) : [];
+      history.unshift({
+        id: Date.now().toString(36),
+        vehicleId: "v1",
+        vehicleName: "Meu Veículo",
+        vehiclePlate: "—",
+        fluidsHandled: [fluidType ?? "oil"],
+        status: "completed",
+        createdAt: new Date().toISOString(),
+      });
+      await AsyncStorage.setItem("@autocare:history", JSON.stringify(history));
+    } catch {}
     router.back();
   }
 
   if (completed) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View
-          style={[
-            styles.header,
-            {
-              backgroundColor: colors.background,
-              borderBottomColor: colors.border,
-              paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16),
-            },
-          ]}
-        >
+        <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border, paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16) }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Feather name="chevron-left" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
@@ -213,11 +210,7 @@ export default function GuideScreen() {
           <Text style={[styles.completedSub, { color: colors.textSecondary }]}>
             Excelente! Você completou o guia de manutenção do {fluidName}. Seu veículo agradece!
           </Text>
-          <TouchableOpacity
-            onPress={handleSave}
-            style={[styles.saveBtn, { backgroundColor: colors.primary }]}
-            activeOpacity={0.85}
-          >
+          <TouchableOpacity onPress={handleSave} style={[styles.saveBtn, { backgroundColor: colors.primary }]} activeOpacity={0.85} testID="save-history-btn">
             <Text style={styles.saveBtnText}>Salvar no histórico</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.back()} style={styles.backDiagBtn}>
@@ -232,16 +225,7 @@ export default function GuideScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: colors.background,
-            borderBottomColor: colors.border,
-            paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16),
-          },
-        ]}
-      >
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border, paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16) }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Feather name="chevron-left" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
@@ -252,78 +236,29 @@ export default function GuideScreen() {
       <View style={[styles.progressBar, { paddingHorizontal: spacing.xl, paddingVertical: spacing.sm }]}>
         <View style={styles.progressSegments}>
           {steps.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.segment,
-                {
-                  flex: 1,
-                  backgroundColor: i <= currentStep ? colors.primary : colors.border,
-                  marginRight: i < steps.length - 1 ? 4 : 0,
-                },
-              ]}
-            />
+            <View key={i} style={[styles.segment, { flex: 1, backgroundColor: i <= currentStep ? colors.primary : colors.border, marginRight: i < steps.length - 1 ? 4 : 0 }]} />
           ))}
         </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: insets.bottom + 120 + (Platform.OS === "web" ? 34 : 0) },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 + (Platform.OS === "web" ? 34 : 0) }]} showsVerticalScrollIndicator={false}>
         <Animated.View style={[styles.stepContent, { opacity: fadeAnim }]}>
           <View style={[styles.animationBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Feather name={step.icon as any} size={72} color={colors.primary} />
           </View>
-
-          <Text style={[styles.stepNumber, { color: colors.textSecondary }]}>
-            Passo {currentStep + 1} de {steps.length}
-          </Text>
+          <Text style={[styles.stepNumber, { color: colors.textSecondary }]}>Passo {currentStep + 1} de {steps.length}</Text>
           <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>{step.title}</Text>
           <Text style={[styles.stepInstruction, { color: colors.textSecondary }]}>{step.instruction}</Text>
-
-          {step.warning && (
-            <AlertCard message={step.warning} type="warning" />
-          )}
+          {step.warning && <AlertCard message={step.warning} type="warning" />}
         </Animated.View>
       </ScrollView>
 
-      <View
-        style={[
-          styles.navButtons,
-          {
-            borderTopColor: colors.border,
-            paddingBottom: insets.bottom + spacing.md + (Platform.OS === "web" ? 34 : 0),
-            backgroundColor: colors.background,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          onPress={goPrev}
-          disabled={currentStep === 0}
-          style={[
-            styles.navBtn,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              opacity: currentStep === 0 ? 0.4 : 1,
-            },
-          ]}
-          activeOpacity={0.8}
-        >
+      <View style={[styles.navButtons, { borderTopColor: colors.border, paddingBottom: insets.bottom + spacing.md + (Platform.OS === "web" ? 34 : 0), backgroundColor: colors.background }]}>
+        <TouchableOpacity onPress={goPrev} disabled={currentStep === 0} style={[styles.navBtn, { backgroundColor: colors.surface, borderColor: colors.border, opacity: currentStep === 0 ? 0.4 : 1 }]} activeOpacity={0.8} testID="prev-step-btn">
           <Text style={[styles.navBtnText, { color: colors.textPrimary }]}>Anterior</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={goNext}
-          style={[styles.navBtn, styles.nextBtn, { backgroundColor: colors.primary }]}
-          activeOpacity={0.85}
-        >
-          <Text style={[styles.navBtnText, { color: "#fff" }]}>
-            {currentStep === steps.length - 1 ? "✓ Concluir" : "Próximo"}
-          </Text>
+        <TouchableOpacity onPress={goNext} style={[styles.navBtn, styles.nextBtn, { backgroundColor: colors.primary }]} activeOpacity={0.85} testID="next-step-btn">
+          <Text style={[styles.navBtnText, { color: "#fff" }]}>{currentStep === steps.length - 1 ? "✓ Concluir" : "Próximo"}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -332,133 +267,28 @@ export default function GuideScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    justifyContent: "space-between",
-  },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md, paddingBottom: spacing.sm, borderBottomWidth: 1, justifyContent: "space-between" },
   backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_600SemiBold",
-    fontWeight: "600",
-  },
+  headerTitle: { fontSize: 18, fontFamily: "Inter_600SemiBold", fontWeight: "600" },
   progressBar: {},
-  progressSegments: {
-    flexDirection: "row",
-    height: 4,
-    borderRadius: 2,
-  },
-  segment: {
-    height: 4,
-    borderRadius: 2,
-  },
-  content: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-  },
-  stepContent: {
-    gap: spacing.md,
-  },
-  animationBox: {
-    height: 200,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.sm,
-  },
-  stepNumber: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-  },
-  stepTitle: {
-    fontSize: 22,
-    fontFamily: "Inter_700Bold",
-    fontWeight: "700",
-    lineHeight: 30,
-  },
-  stepInstruction: {
-    fontSize: 16,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 26,
-  },
-  navButtons: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: "row",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-  },
-  navBtn: {
-    flex: 1,
-    height: 52,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  nextBtn: {
-    borderWidth: 0,
-  },
-  navBtnText: {
-    fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
-    fontWeight: "600",
-  },
-  completedContent: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.xl,
-    gap: spacing.lg,
-  },
-  checkCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  completedTitle: {
-    fontSize: 26,
-    fontFamily: "Inter_700Bold",
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  completedSub: {
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-    lineHeight: 24,
-  },
-  saveBtn: {
-    width: "100%",
-    height: 52,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  saveBtnText: {
-    color: "#fff",
-    fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
-    fontWeight: "600",
-  },
-  backDiagBtn: {
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  backDiagText: {
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-  },
+  progressSegments: { flexDirection: "row", height: 4, borderRadius: 2 },
+  segment: { height: 4, borderRadius: 2 },
+  content: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg },
+  stepContent: { gap: spacing.md },
+  animationBox: { height: 200, borderRadius: 16, borderWidth: 1, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
+  stepNumber: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  stepTitle: { fontSize: 22, fontFamily: "Inter_700Bold", fontWeight: "700", lineHeight: 30 },
+  stepInstruction: { fontSize: 16, fontFamily: "Inter_400Regular", lineHeight: 26 },
+  navButtons: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.xl, paddingTop: spacing.md, borderTopWidth: 1 },
+  navBtn: { flex: 1, height: 52, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  nextBtn: { borderWidth: 0 },
+  navBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold", fontWeight: "600" },
+  completedContent: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: spacing.lg },
+  checkCircle: { width: 100, height: 100, borderRadius: 50, alignItems: "center", justifyContent: "center" },
+  completedTitle: { fontSize: 26, fontFamily: "Inter_700Bold", fontWeight: "700", textAlign: "center" },
+  completedSub: { fontSize: 15, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 24 },
+  saveBtn: { width: "100%", height: 52, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  saveBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold", fontWeight: "600" },
+  backDiagBtn: { height: 44, alignItems: "center", justifyContent: "center" },
+  backDiagText: { fontSize: 15, fontFamily: "Inter_500Medium" },
 });

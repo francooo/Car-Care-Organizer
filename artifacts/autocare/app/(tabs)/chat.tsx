@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   FlatList,
   Platform,
@@ -11,18 +11,13 @@ import {
 } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChatMessage, useChat } from "@/context/ChatContext";
+import { ChatMessage, useChatStore } from "@/store/chatStore";
 import { useColors } from "@/hooks/useColors";
 import spacing from "@/constants/spacing";
 
-const QUICK_REPLIES = [
-  "Como trocar o óleo?",
-  "Qual produto comprar?",
-  "Isso é urgente?",
-  "Posso fazer sozinho?",
-];
+const QUICK_REPLIES = ["Como trocar o óleo?", "Qual produto comprar?", "Isso é urgente?", "Posso fazer sozinho?"];
 
-function TypingIndicator({ colors }: { colors: any }) {
+function TypingDots({ colors }: { colors: ReturnType<typeof import("@/hooks/useColors").useColors> }) {
   return (
     <View style={[styles.bubble, styles.bubbleAI, { backgroundColor: colors.surface }]}>
       <Text style={[styles.typingDots, { color: colors.textSecondary }]}>●●●</Text>
@@ -30,25 +25,22 @@ function TypingIndicator({ colors }: { colors: any }) {
   );
 }
 
-function ChatBubble({ message, colors }: { message: ChatMessage; colors: any }) {
-  const isUser = message.role === "user";
-  const time = new Date(message.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-
+function ChatBubble({ msg, colors }: { msg: ChatMessage; colors: ReturnType<typeof import("@/hooks/useColors").useColors> }) {
+  const isUser = msg.role === "user";
+  const time = new Date(msg.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   return (
     <View style={[styles.bubbleWrapper, isUser && styles.bubbleWrapperUser]}>
-      <View
-        style={[
-          styles.bubble,
-          isUser
-            ? [styles.bubbleUser, { backgroundColor: colors.primary }]
-            : [styles.bubbleAI, { backgroundColor: colors.surface }],
-        ]}
-      >
+      <View style={[
+        styles.bubble,
+        isUser
+          ? [styles.bubbleUser, { backgroundColor: colors.primary }]
+          : [styles.bubbleAI, { backgroundColor: colors.surface }],
+      ]}>
         <Text style={[styles.bubbleText, { color: isUser ? "#fff" : colors.textPrimary }]}>
-          {message.content}
+          {msg.content || "…"}
         </Text>
       </View>
-      <Text style={[styles.timestamp, { color: colors.textSecondary }]}>{time}</Text>
+      <Text style={[styles.timestamp, { color: colors.textSecondary, alignSelf: isUser ? "flex-end" : "flex-start" }]}>{time}</Text>
     </View>
   );
 }
@@ -56,27 +48,23 @@ function ChatBubble({ message, colors }: { message: ChatMessage; colors: any }) 
 export default function ChatScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { currentConversation, startConversation, sendMessage } = useChat();
+  const { getCurrentConversation, startConversation, sendMessage, isStreaming } = useChatStore();
   const [text, setText] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const flatListRef = useRef<FlatList>(null);
+
+  const conv = getCurrentConversation();
 
   useEffect(() => {
-    if (!currentConversation) {
-      startConversation(undefined, undefined);
-    }
+    if (!conv) startConversation();
   }, []);
 
   async function handleSend(content?: string) {
     const msg = content ?? text.trim();
-    if (!msg) return;
+    if (!msg || isStreaming) return;
     setText("");
-    setIsTyping(true);
     await sendMessage(msg);
-    setIsTyping(false);
   }
 
-  const messages = currentConversation?.messages ?? [];
+  const messages = conv?.messages ?? [];
 
   return (
     <KeyboardAvoidingView
@@ -84,111 +72,92 @@ export default function ChatScreen() {
       behavior="padding"
       keyboardVerticalOffset={0}
     >
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: colors.background,
-            borderBottomColor: colors.border,
-            paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16),
-          },
-        ]}
-      >
+      <View style={[
+        styles.header,
+        { borderBottomColor: colors.border, paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16) },
+      ]}>
         <View style={[styles.aiAvatar, { backgroundColor: colors.primary }]}>
           <Feather name="cpu" size={18} color="#fff" />
         </View>
-        <View style={styles.headerInfo}>
+        <View style={{ flex: 1 }}>
           <Text style={[styles.headerName, { color: colors.textPrimary }]}>Especialista AutoCare AI</Text>
-          <Text style={[styles.headerStatus, { color: colors.success }]}>● online agora</Text>
+          <Text style={[styles.headerStatus, { color: isStreaming ? colors.warning : colors.success }]}>
+            {isStreaming ? "● digitando…" : "● online agora"}
+          </Text>
         </View>
+        <TouchableOpacity onPress={() => startConversation()}>
+          <Feather name="plus-circle" size={22} color={colors.textSecondary} />
+        </TouchableOpacity>
       </View>
 
       <FlatList
-        ref={flatListRef}
         data={messages}
-        keyExtractor={(m) => m.id}
+        keyExtractor={m => m.id}
         inverted
-        contentContainerStyle={[
-          styles.messageList,
-          { paddingBottom: spacing.md },
-        ]}
+        contentContainerStyle={styles.messageList}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={isTyping ? <TypingIndicator colors={colors} /> : null}
+        ListHeaderComponent={isStreaming ? <TypingDots colors={colors} /> : null}
         ListEmptyComponent={
-          <View style={styles.quickRepliesEmpty}>
-            {QUICK_REPLIES.map((q) => (
+          <View style={{ padding: spacing.xl, transform: [{ scaleY: -1 }] }}>
+            <Text style={[styles.emptyChat, { color: colors.textSecondary }]}>
+              Faça uma pergunta sobre seu veículo...
+            </Text>
+            {QUICK_REPLIES.map(q => (
               <TouchableOpacity
                 key={q}
                 onPress={() => handleSend(q)}
                 style={[styles.quickChip, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                activeOpacity={0.8}
               >
                 <Text style={[styles.quickChipText, { color: colors.primary }]}>{q}</Text>
               </TouchableOpacity>
             ))}
           </View>
         }
-        renderItem={({ item }) => <ChatBubble message={item} colors={colors} />}
+        renderItem={({ item }) => <ChatBubble msg={item} colors={colors} />}
       />
 
       {messages.length > 0 && (
-        <View style={[styles.quickRepliesRow]}>
-          <FlatList
-            horizontal
-            data={QUICK_REPLIES}
-            keyExtractor={(q) => q}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: spacing.md, gap: spacing.sm }}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() => handleSend(item)}
-                style={[styles.quickChip, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.quickChipText, { color: colors.primary }]}>{item}</Text>
-              </TouchableOpacity>
-            )}
-          />
-        </View>
+        <FlatList
+          horizontal
+          data={QUICK_REPLIES}
+          keyExtractor={q => q}
+          style={styles.quickRepliesBar}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: spacing.md, gap: spacing.sm }}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              onPress={() => handleSend(item)}
+              style={[styles.quickChip, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            >
+              <Text style={[styles.quickChipText, { color: colors.primary }]}>{item}</Text>
+            </TouchableOpacity>
+          )}
+        />
       )}
 
-      <View
-        style={[
-          styles.inputBar,
-          {
-            backgroundColor: colors.background,
-            borderTopColor: colors.border,
-            paddingBottom: insets.bottom + spacing.sm + (Platform.OS === "web" ? 34 : 0),
-          },
-        ]}
-      >
+      <View style={[
+        styles.inputBar,
+        { borderTopColor: colors.border, paddingBottom: insets.bottom + spacing.sm + (Platform.OS === "web" ? 34 : 0) },
+      ]}>
         <TextInput
           value={text}
           onChangeText={setText}
           placeholder="Pergunte ao especialista…"
           placeholderTextColor={colors.textSecondary}
           multiline
-          style={[
-            styles.input,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              color: colors.textPrimary,
-            },
-          ]}
+          style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
           returnKeyType="send"
           onSubmitEditing={() => handleSend()}
+          testID="chat-input"
         />
         <TouchableOpacity
           onPress={() => handleSend()}
-          disabled={!text.trim()}
-          style={[
-            styles.sendBtn,
-            { backgroundColor: text.trim() ? colors.primary : colors.border },
-          ]}
+          disabled={!text.trim() || isStreaming}
+          style={[styles.sendBtn, { backgroundColor: text.trim() && !isStreaming ? colors.primary : colors.border }]}
           activeOpacity={0.8}
+          testID="send-btn"
         >
-          <Feather name={text.trim() ? "arrow-up" : "mic"} size={20} color="#fff" />
+          <Feather name="arrow-up" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -198,111 +167,33 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
+    flexDirection: "row", alignItems: "center", gap: spacing.sm,
+    paddingHorizontal: spacing.md, paddingBottom: spacing.sm, borderBottomWidth: 1,
   },
-  aiAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerInfo: { flex: 1 },
-  headerName: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-    fontWeight: "600",
-  },
-  headerStatus: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-  },
-  messageList: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    flexDirection: "column",
-  },
-  bubbleWrapper: {
-    marginBottom: spacing.sm,
-    maxWidth: "80%",
-  },
-  bubbleWrapperUser: {
-    alignSelf: "flex-end",
-  },
-  bubble: {
-    padding: 12,
-    borderRadius: 14,
-  },
-  bubbleAI: {
-    borderBottomLeftRadius: 4,
-    alignSelf: "flex-start",
-  },
-  bubbleUser: {
-    borderBottomRightRadius: 4,
-    alignSelf: "flex-end",
-  },
-  bubbleText: {
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 22,
-  },
-  typingDots: {
-    fontSize: 18,
-    letterSpacing: 3,
-  },
-  timestamp: {
-    fontSize: 10,
-    fontFamily: "Inter_400Regular",
-    marginTop: 2,
-    alignSelf: "flex-end",
-  },
-  quickRepliesEmpty: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    transform: [{ scaleY: -1 }],
-  },
-  quickRepliesRow: {
-    paddingVertical: spacing.xs,
-  },
-  quickChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  quickChipText: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-  },
+  aiAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  headerName: { fontSize: 15, fontFamily: "Inter_600SemiBold", fontWeight: "600" },
+  headerStatus: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  messageList: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  bubbleWrapper: { marginBottom: spacing.sm, maxWidth: "80%" },
+  bubbleWrapperUser: { alignSelf: "flex-end" },
+  bubble: { padding: 12, borderRadius: 14 },
+  bubbleAI: { borderBottomLeftRadius: 4, alignSelf: "flex-start" },
+  bubbleUser: { borderBottomRightRadius: 4, alignSelf: "flex-end" },
+  bubbleText: { fontSize: 15, fontFamily: "Inter_400Regular", lineHeight: 22 },
+  typingDots: { fontSize: 18, letterSpacing: 3 },
+  timestamp: { fontSize: 10, fontFamily: "Inter_400Regular", marginTop: 2 },
+  emptyChat: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", marginBottom: spacing.md },
+  quickRepliesBar: { maxHeight: 44, paddingVertical: spacing.xs },
+  quickChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  quickChipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   inputBar: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
+    flexDirection: "row", alignItems: "flex-end", gap: spacing.sm,
+    paddingHorizontal: spacing.md, paddingTop: spacing.sm, borderTopWidth: 1,
   },
   input: {
-    flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    borderRadius: 22,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
+    flex: 1, minHeight: 44, maxHeight: 120, borderRadius: 22,
+    borderWidth: 1, paddingHorizontal: 16, paddingVertical: 10,
+    fontSize: 15, fontFamily: "Inter_400Regular",
   },
-  sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  sendBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
 });

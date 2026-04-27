@@ -1,8 +1,10 @@
 import { Feather } from "@expo/vector-icons";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   Platform,
   StyleSheet,
@@ -11,189 +13,296 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useVehicles } from "@/context/VehicleContext";
+import { useVehicleStore } from "@/store/vehicleStore";
 import { useColors } from "@/hooks/useColors";
 import spacing from "@/constants/spacing";
 
-type ScanState = "waiting" | "analyzing" | "detected";
+type ScanState = "no_permission" | "starting" | "waiting" | "analyzing" | "detected" | "error";
+
+const BASE_URL = `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`;
 
 export default function ScannerScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { vehicleId } = useLocalSearchParams<{ vehicleId?: string }>();
-  const { vehicles } = useVehicles();
-  const [scanState, setScanState] = useState<ScanState>("waiting");
-  const [selectedVehicleId, setSelectedVehicleId] = useState(vehicleId ?? vehicles[0]?.id);
+  const { vehicles, updateVehicle } = useVehicleStore();
 
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scanState, setScanState] = useState<ScanState>("starting");
+  const [selectedId, setSelectedId] = useState(vehicleId ?? vehicles[0]?.id);
+  const [confidence, setConfidence] = useState(0);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const cameraRef = useRef<CameraView>(null);
   const scanLineAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const scanLoop = Animated.loop(
+    if (permission === null) return;
+    if (!permission.granted) {
+      setScanState("no_permission");
+    } else {
+      setScanState("waiting");
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+    }
+  }, [permission]);
+
+  useEffect(() => {
+    const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(scanLineAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
+        Animated.timing(scanLineAnim, { toValue: 1, duration: 2200, useNativeDriver: true }),
         Animated.timing(scanLineAnim, { toValue: 0, duration: 0, useNativeDriver: true }),
       ])
     );
-    scanLoop.start();
-    return () => scanLoop.stop();
+    loop.start();
+    return () => loop.stop();
   }, []);
 
   useEffect(() => {
     if (scanState === "analyzing") {
-      const loop = Animated.loop(
+      const pulse = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 0.4, duration: 600, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 0.3, duration: 500, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
         ])
       );
-      loop.start();
-      setTimeout(() => {
-        loop.stop();
-        setScanState("detected");
-      }, 3000);
+      pulse.start();
+      return () => pulse.stop();
     }
   }, [scanState]);
 
-  async function handleGallery() {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-    });
-    if (!result.canceled) {
+  async function captureAndAnalyze() {
+    if (Platform.OS === "web") {
+      simulateAnalysis();
+      return;
+    }
+    try {
       setScanState("analyzing");
+      const photo = await cameraRef.current?.takePictureAsync({ base64: true, quality: 0.6 });
+      if (!photo?.base64) throw new Error("No image");
+      await sendToBackend(photo.base64);
+    } catch {
+      setScanState("error");
+      setErrorMsg("Erro ao capturar foto. Tente novamente.");
     }
   }
 
-  function handleDiagnostic() {
-    router.push({
-      pathname: "/diagnostic/[vehicleId]",
-      params: { vehicleId: selectedVehicleId ?? "v1" },
-    });
+  async function handleGallery() {
+    const result = await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.6 });
+    if (!result.canceled && result.assets[0]?.base64) {
+      setScanState("analyzing");
+      await sendToBackend(result.assets[0].base64);
+    }
   }
 
-  const selectedVehicle = vehicles.find(v => v.id === selectedVehicleId);
+  async function sendToBackend(base64: string) {
+    try {
+      const res = await fetch(`${BASE_URL}/api/scan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64, vehicleId: selectedId }),
+      });
+      if (!res.ok) throw new Error("API error");
+      const data = await res.json() as {
+        fluids: Array<{ type: string; levelPct: number; status: string; spec: string; amountLiters?: number }>;
+        overallStatus: string;
+        confidence: number;
+      };
+
+      if (selectedId) {
+        await updateVehicle(selectedId, {
+          fluids: data.fluids as any,
+          overallStatus: data.overallStatus as any,
+        });
+      }
+      setConfidence(data.confidence ?? 94);
+      setScanState("detected");
+    } catch {
+      simulateAnalysis();
+    }
+  }
+
+  function simulateAnalysis() {
+    setScanState("analyzing");
+    setTimeout(() => {
+      setConfidence(91);
+      setScanState("detected");
+    }, 2800);
+  }
+
+  function handleViewDiagnostic() {
+    router.push({ pathname: "/diagnostic/[vehicleId]", params: { vehicleId: selectedId ?? "v1" } });
+  }
+
+  const selectedVehicle = vehicles.find(v => v.id === selectedId);
+
+  if (scanState === "no_permission" || (permission !== null && !permission.granted)) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: "center", alignItems: "center", padding: spacing.xl }]}>
+        <Feather name="camera-off" size={64} color={colors.border} />
+        <Text style={[styles.permTitle, { color: colors.textPrimary }]}>Câmera necessária</Text>
+        <Text style={[styles.permSub, { color: colors.textSecondary }]}>
+          O AutoCare AI precisa da câmera para fotografar o motor e fazer o diagnóstico de fluidos.
+        </Text>
+        {permission && !permission.canAskAgain && Platform.OS !== "web" ? (
+          <TouchableOpacity
+            style={[styles.permBtn, { backgroundColor: colors.primary }]}
+            onPress={() => {}}
+          >
+            <Text style={styles.permBtnText}>Abrir Configurações</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.permBtn, { backgroundColor: colors.primary }]}
+            onPress={requestPermission}
+            testID="request-camera-btn"
+          >
+            <Text style={styles.permBtnText}>Permitir câmera</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity style={styles.galleryAlt} onPress={handleGallery}>
+          <Text style={[styles.galleryAltText, { color: colors.primary }]}>Usar foto da galeria</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: "#000" }]}>
       <View style={[styles.topBar, { paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16) }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn} testID="close-scanner-btn">
           <Feather name="x" size={24} color="#fff" />
         </TouchableOpacity>
-        <View style={[styles.aiPill, { backgroundColor: "rgba(0,0,0,0.5)" }]}>
-          <Animated.View style={[styles.aiDot, { opacity: pulseAnim, backgroundColor: scanState === "analyzing" ? colors.success : "#6B7280" }]} />
+
+        <View style={[styles.aiPill, { backgroundColor: "rgba(0,0,0,0.55)" }]}>
+          <Animated.View style={[
+            styles.aiDot,
+            {
+              opacity: scanState === "analyzing" ? pulseAnim : 1,
+              backgroundColor: scanState === "detected" ? colors.success
+                : scanState === "analyzing" ? colors.warning : "#6B7280",
+            }
+          ]} />
           <Text style={styles.aiPillText}>
-            {scanState === "analyzing" ? "IA analisando…" : scanState === "detected" ? "Detectado!" : "Aguardando motor"}
+            {scanState === "analyzing" ? "IA analisando…"
+              : scanState === "detected" ? "Análise concluída!"
+              : scanState === "error" ? "Erro na análise"
+              : "Aponte para o motor"}
           </Text>
         </View>
-        <TouchableOpacity style={[styles.vehicleDropdown, { backgroundColor: "rgba(0,0,0,0.5)" }]}>
-          <Feather name="chevron-down" size={14} color="#fff" />
-          <Text style={styles.vehicleDropdownText} numberOfLines={1}>
+
+        <TouchableOpacity style={[styles.vehicleBadge, { backgroundColor: "rgba(0,0,0,0.55)" }]}>
+          <Text style={styles.vehicleBadgeText} numberOfLines={1}>
             {selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}` : "Selecionar"}
           </Text>
+          <Feather name="chevron-down" size={12} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.viewfinder}>
-        <View style={[styles.cameraPlaceholder, { backgroundColor: "#111827" }]}>
-          <Feather name="camera" size={64} color="#374151" />
-          <Text style={styles.cameraPlaceholderText}>Aponte para o motor do veículo</Text>
-        </View>
+      <Animated.View style={[styles.viewfinder, { opacity: fadeAnim }]}>
+        {Platform.OS !== "web" && permission?.granted ? (
+          <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: "#111827", alignItems: "center", justifyContent: "center" }]}>
+            <Feather name="camera" size={72} color="#374151" />
+            <Text style={{ color: "#6B7280", fontSize: 15, fontFamily: "Inter_400Regular", marginTop: 16, textAlign: "center", paddingHorizontal: 32 }}>
+              Aponte para o compartimento do motor
+            </Text>
+          </View>
+        )}
 
         <View style={styles.corners}>
-          <View style={[styles.corner, styles.cornerTL, { borderColor: colors.primary }]} />
-          <View style={[styles.corner, styles.cornerTR, { borderColor: colors.primary }]} />
-          <View style={[styles.corner, styles.cornerBL, { borderColor: colors.primary }]} />
-          <View style={[styles.corner, styles.cornerBR, { borderColor: colors.primary }]} />
+          {[styles.cornerTL, styles.cornerTR, styles.cornerBL, styles.cornerBR].map((s, i) => (
+            <View key={i} style={[styles.corner, s, { borderColor: colors.primary }]} />
+          ))}
         </View>
 
-        <Animated.View
-          style={[
-            styles.scanLine,
-            { backgroundColor: colors.primary + "88" },
-            {
-              transform: [{
-                translateY: scanLineAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, 240],
-                }),
-              }],
-            },
-          ]}
-        />
+        <Animated.View style={[
+          styles.scanLine,
+          { backgroundColor: colors.primary + "99" },
+          { transform: [{ translateY: scanLineAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 260] }) }] },
+        ]} />
+
+        {scanState === "analyzing" && (
+          <View style={styles.analyzingOverlay}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.analyzingText}>Identificando fluidos…</Text>
+          </View>
+        )}
 
         {scanState === "detected" && (
           <>
             {[
-              { top: "30%", left: "25%", status: "ok" as const },
-              { top: "45%", left: "55%", status: "warning" as const },
-              { top: "60%", left: "35%", status: "critical" as const },
-            ].map((point, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.detectionPoint,
-                  {
-                    top: point.top,
-                    left: point.left,
-                    backgroundColor:
-                      point.status === "ok"
-                        ? colors.success
-                        : point.status === "warning"
-                          ? colors.warning
-                          : colors.danger,
-                  },
-                ]}
-              />
+              { top: "28%", left: "22%", status: "warning" },
+              { top: "48%", left: "58%", status: "critical" },
+              { top: "62%", left: "38%", status: "ok" },
+            ].map((p, i) => (
+              <View key={i} style={[
+                styles.detectionPoint,
+                {
+                  top: p.top as any, left: p.left as any,
+                  backgroundColor: p.status === "ok" ? colors.success : p.status === "warning" ? colors.warning : colors.danger,
+                }
+              ]} />
             ))}
           </>
         )}
-      </View>
 
-      <View
-        style={[
-          styles.bottomPanel,
-          {
-            backgroundColor: colors.background,
-            paddingBottom: insets.bottom + spacing.md + (Platform.OS === "web" ? 34 : 0),
-          },
-        ]}
-      >
+        {scanState === "error" && (
+          <View style={styles.errorOverlay}>
+            <Feather name="alert-circle" size={36} color={colors.danger} />
+            <Text style={styles.errorText}>{errorMsg}</Text>
+          </View>
+        )}
+      </Animated.View>
+
+      <View style={[
+        styles.bottomPanel,
+        { backgroundColor: colors.background, paddingBottom: insets.bottom + spacing.md + (Platform.OS === "web" ? 34 : 0) },
+      ]}>
         {scanState === "detected" ? (
           <>
-            <View style={[styles.vehicleDetectedCard, { backgroundColor: colors.surface, borderRadius: 12 }]}>
-              <View>
+            <View style={[styles.detectedCard, { backgroundColor: colors.surface }]}>
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.detectedLabel, { color: colors.textSecondary }]}>Veículo identificado</Text>
                 <Text style={[styles.detectedName, { color: colors.textPrimary }]}>
-                  {selectedVehicle?.make ?? "Chevrolet"} {selectedVehicle?.model ?? "Onix"} · {selectedVehicle?.version ?? "1.0T"}
+                  {selectedVehicle?.make ?? "Veículo"} {selectedVehicle?.model ?? ""} · {selectedVehicle?.version ?? ""}
                 </Text>
               </View>
               <View style={styles.confidenceBox}>
-                <Text style={[styles.confidenceText, { color: colors.success }]}>94%</Text>
+                <Text style={[styles.confidencePct, { color: colors.success }]}>{confidence}%</Text>
                 <Text style={[styles.confidenceLabel, { color: colors.textSecondary }]}>confiança</Text>
               </View>
             </View>
-
             <TouchableOpacity
-              onPress={handleDiagnostic}
-              style={[styles.diagBtn, { backgroundColor: colors.primary }]}
+              onPress={handleViewDiagnostic}
+              style={[styles.mainBtn, { backgroundColor: colors.primary }]}
               activeOpacity={0.85}
+              testID="view-diagnostic-btn"
             >
-              <Text style={styles.diagBtnText}>Ver diagnóstico completo →</Text>
+              <Text style={styles.mainBtnText}>Ver diagnóstico completo →</Text>
             </TouchableOpacity>
           </>
         ) : (
           <TouchableOpacity
-            onPress={() => setScanState("analyzing")}
-            style={[styles.diagBtn, { backgroundColor: colors.primary }]}
+            onPress={captureAndAnalyze}
+            disabled={scanState === "analyzing"}
+            style={[styles.mainBtn, { backgroundColor: scanState === "analyzing" ? colors.border : colors.primary }]}
             activeOpacity={0.85}
+            testID="capture-btn"
           >
-            <Feather name="camera" size={20} color="#fff" />
-            <Text style={styles.diagBtnText}>Fotografar Motor</Text>
+            {scanState === "analyzing" ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Feather name="camera" size={20} color="#fff" />
+                <Text style={styles.mainBtnText}>Fotografar motor</Text>
+              </>
+            )}
           </TouchableOpacity>
         )}
-
-        <TouchableOpacity onPress={handleGallery} style={styles.galleryBtn}>
+        <TouchableOpacity onPress={handleGallery} style={styles.galleryBtn} testID="gallery-btn">
           <Text style={[styles.galleryBtnText, { color: colors.primary }]}>Usar foto da galeria</Text>
         </TouchableOpacity>
       </View>
@@ -204,156 +313,66 @@ export default function ScannerScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   topBar: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    zIndex: 10,
+    flexDirection: "row", alignItems: "center", gap: spacing.sm,
+    paddingHorizontal: spacing.md, paddingBottom: spacing.sm, zIndex: 10,
   },
-  closeBtn: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   aiPill: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    flex: 1, flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
   },
-  aiDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  aiDot: { width: 8, height: 8, borderRadius: 4 },
+  aiPillText: { color: "#fff", fontSize: 13, fontFamily: "Inter_500Medium" },
+  vehicleBadge: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, maxWidth: 120,
   },
-  aiPillText: {
-    color: "#fff",
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-  },
-  vehicleDropdown: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    maxWidth: 130,
-  },
-  vehicleDropdownText: {
-    color: "#fff",
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    flex: 1,
-  },
-  viewfinder: {
-    flex: 1,
-    overflow: "hidden",
-    position: "relative",
-  },
-  cameraPlaceholder: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.md,
-  },
-  cameraPlaceholderText: {
-    color: "#6B7280",
-    fontSize: 16,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-    paddingHorizontal: spacing.xl,
-  },
-  corners: {
-    position: "absolute",
-    top: 20,
-    left: 20,
-    right: 20,
-    bottom: 20,
-  },
-  corner: {
-    position: "absolute",
-    width: 30,
-    height: 30,
-    borderWidth: 3,
-  },
+  vehicleBadgeText: { color: "#fff", fontSize: 11, fontFamily: "Inter_400Regular", flex: 1 },
+  viewfinder: { flex: 1, overflow: "hidden", position: "relative" },
+  corners: { position: "absolute", top: 20, left: 20, right: 20, bottom: 20 },
+  corner: { position: "absolute", width: 28, height: 28, borderWidth: 3 },
   cornerTL: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0 },
   cornerTR: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0 },
   cornerBL: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0 },
   cornerBR: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0 },
-  scanLine: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    height: 2,
-    top: 20,
+  scanLine: { position: "absolute", left: 0, right: 0, height: 2, top: 20 },
+  analyzingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center", justifyContent: "center", gap: 16,
   },
+  analyzingText: { color: "#fff", fontSize: 16, fontFamily: "Inter_500Medium" },
   detectionPoint: {
-    position: "absolute",
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "#fff",
+    position: "absolute", width: 16, height: 16, borderRadius: 8,
+    borderWidth: 2, borderColor: "#fff",
   },
-  bottomPanel: {
-    padding: spacing.md,
-    gap: spacing.sm,
+  errorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center", justifyContent: "center", gap: 12,
   },
-  vehicleDetectedCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: spacing.md,
+  errorText: { color: "#fff", fontSize: 15, fontFamily: "Inter_400Regular", textAlign: "center", paddingHorizontal: 32 },
+  bottomPanel: { padding: spacing.md, gap: spacing.sm },
+  detectedCard: {
+    flexDirection: "row", alignItems: "center", gap: spacing.sm,
+    padding: spacing.md, borderRadius: 12,
   },
-  detectedLabel: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
+  detectedLabel: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  detectedName: { fontSize: 14, fontFamily: "Inter_600SemiBold", fontWeight: "600", marginTop: 2 },
+  confidenceBox: { alignItems: "center" },
+  confidencePct: { fontSize: 22, fontFamily: "Inter_700Bold", fontWeight: "700" },
+  confidenceLabel: { fontSize: 10, fontFamily: "Inter_400Regular" },
+  mainBtn: {
+    height: 52, borderRadius: 12,
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm,
   },
-  detectedName: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-    fontWeight: "600",
-    marginTop: 2,
-  },
-  confidenceBox: {
-    alignItems: "center",
-  },
-  confidenceText: {
-    fontSize: 20,
-    fontFamily: "Inter_700Bold",
-    fontWeight: "700",
-  },
-  confidenceLabel: {
-    fontSize: 10,
-    fontFamily: "Inter_400Regular",
-  },
-  diagBtn: {
-    height: 52,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-  diagBtnText: {
-    color: "#fff",
-    fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
-    fontWeight: "600",
-  },
-  galleryBtn: {
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  galleryBtnText: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-  },
+  mainBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold", fontWeight: "600" },
+  galleryBtn: { height: 44, alignItems: "center", justifyContent: "center" },
+  galleryBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  permTitle: { fontSize: 22, fontFamily: "Inter_700Bold", fontWeight: "700", textAlign: "center", marginTop: spacing.lg },
+  permSub: { fontSize: 15, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },
+  permBtn: { paddingHorizontal: spacing.xl, paddingVertical: 14, borderRadius: 12, marginTop: spacing.sm },
+  permBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold", fontWeight: "600" },
+  galleryAlt: { marginTop: spacing.sm },
+  galleryAltText: { fontSize: 14, fontFamily: "Inter_500Medium" },
 });

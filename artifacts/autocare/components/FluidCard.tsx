@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { FluidReading, FluidType } from "@/context/VehicleContext";
+import { FluidReading, FluidType } from "@/store/vehicleStore";
 import { useColors } from "@/hooks/useColors";
 import { FluidLevelBar } from "./ui/FluidLevelBar";
 import { StatusBadge } from "./ui/StatusBadge";

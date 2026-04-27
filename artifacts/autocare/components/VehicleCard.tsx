@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { FluidStatus, Vehicle } from "@/context/VehicleContext";
+import { FluidStatus, Vehicle } from "@/store/vehicleStore";
 import { useColors } from "@/hooks/useColors";
 import { StatusBadge } from "./ui/StatusBadge";
 import spacing from "@/constants/spacing";

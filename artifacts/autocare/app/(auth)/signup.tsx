@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth } from "@/context/AuthContext";
+import { useAuthStore } from "@/store/authStore";
 import { useColors } from "@/hooks/useColors";
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/TextInput";
@@ -20,7 +20,7 @@ import spacing from "@/constants/spacing";
 export default function SignupScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { signup } = useAuth();
+  const { signup } = useAuthStore();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
