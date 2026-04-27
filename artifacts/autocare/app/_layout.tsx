@@ -6,9 +6,11 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import * as Notifications from "expo-notifications";
 import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -22,11 +24,43 @@ SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
+function useNotificationDeepLink() {
+  const notificationListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+
+    notificationListener.current = Notifications.addNotificationReceivedListener(() => {});
+
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data as Record<string, string> | null;
+      if (data?.vehicleId) {
+        router.push({ pathname: "/diagnostic/[vehicleId]", params: { vehicleId: data.vehicleId } });
+      }
+    });
+
+    Notifications.getLastNotificationResponseAsync().then(response => {
+      const data = response?.notification.request.content.data as Record<string, string> | null;
+      if (data?.vehicleId) {
+        router.push({ pathname: "/diagnostic/[vehicleId]", params: { vehicleId: data.vehicleId } });
+      }
+    });
+
+    return () => {
+      notificationListener.current?.remove();
+      responseListener.current?.remove();
+    };
+  }, []);
+}
+
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading, loadSession } = useAuthStore();
   const { loadVehicles } = useVehicleStore();
   const { loadConversations } = useChatStore();
   const segments = useSegments();
+
+  useNotificationDeepLink();
 
   useEffect(() => {
     loadSession();

@@ -12,6 +12,15 @@ export interface FluidReading {
   amountLiters?: number;
 }
 
+export interface MaintenanceReminder {
+  enabled: boolean;
+  intervalDays: number;
+  lastServiceDate: string;
+  notificationId?: string;
+}
+
+export type MaintenanceSchedule = Partial<Record<FluidType, MaintenanceReminder>>;
+
 export interface Vehicle {
   id: string;
   make: string;
@@ -23,6 +32,7 @@ export interface Vehicle {
   photoUri?: string;
   fluids?: FluidReading[];
   overallStatus?: FluidStatus;
+  maintenanceSchedule?: MaintenanceSchedule;
   createdAt: string;
 }
 
