@@ -16,6 +16,11 @@ export function Toast({ visible, message, duration = 2000, onHide }: ToastProps)
   const insets = useSafeAreaInsets();
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(20)).current;
+  const onHideRef = useRef(onHide);
+
+  useEffect(() => {
+    onHideRef.current = onHide;
+  }, [onHide]);
 
   useEffect(() => {
     if (!visible) return;
@@ -30,14 +35,14 @@ export function Toast({ visible, message, duration = 2000, onHide }: ToastProps)
         Animated.timing(translateY, { toValue: 10, duration: 200, useNativeDriver: true }),
         Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
       ]).start(() => {
-        onHide?.();
         opacity.setValue(0);
         translateY.setValue(20);
+        onHideRef.current?.();
       });
     }, duration);
 
     return () => clearTimeout(hideTimeout);
-  }, [visible]);
+  }, [visible, duration]);
 
   if (!visible) return null;
 

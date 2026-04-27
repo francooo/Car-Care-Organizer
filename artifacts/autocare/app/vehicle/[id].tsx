@@ -499,7 +499,7 @@ export default function EditVehicleScreen() {
         visible={showToast}
         message="Veículo atualizado com sucesso"
         duration={1800}
-        onHide={() => router.back()}
+        onHide={() => { setShowToast(false); router.back(); }}
       />
     </View>
   );
