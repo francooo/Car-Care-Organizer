@@ -78,7 +78,6 @@ function PickerSheet({
 }
 
 export default function AddVehicleScreen() {
-  "use no memo";
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { addVehicle } = useVehicleStore();

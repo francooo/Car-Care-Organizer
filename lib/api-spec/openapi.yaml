@@ -332,20 +332,26 @@ components:
           type: string
       required: [role, content]
 
-    FluidStatus:
+    FluidReading:
       type: object
+      description: Fluid level reading from AI vision analysis
       properties:
         type:
           type: string
           enum: [oil, coolant, brake, power, washer, battery]
-        level:
-          type: string
-          enum: [ok, low, critical, unknown]
-        confidence:
+        levelPct:
           type: number
-        note:
+          description: Fluid level percentage (0–100)
+        status:
           type: string
-      required: [type, level, confidence]
+          enum: [ok, warning, critical]
+        spec:
+          type: string
+          description: Recommended fluid spec (e.g. "5W-30 sintético")
+        amountLiters:
+          type: number
+          description: Estimated amount to add in liters
+      required: [type, levelPct, status, spec]
 
     ScanResult:
       type: object
@@ -357,15 +363,22 @@ components:
         fluids:
           type: array
           items:
-            $ref: "#/components/schemas/FluidStatus"
+            $ref: "#/components/schemas/FluidReading"
         overallStatus:
           type: string
           enum: [ok, warning, critical]
+        vehicleDetected:
+          type: string
+          description: Vehicle type detected in image
+        confidence:
+          type: number
+          description: AI confidence score (0–1)
         summary:
           type: string
-        createdAt:
+        scannedAt:
           type: string
-      required: [scanId, fluids, overallStatus, summary, createdAt]
+          format: date-time
+      required: [scanId, fluids, overallStatus, summary, scannedAt]
 
     Vehicle:
       type: object
@@ -392,7 +405,7 @@ components:
         fluids:
           type: array
           items:
-            $ref: "#/components/schemas/FluidStatus"
+            $ref: "#/components/schemas/FluidReading"
         createdAt:
           type: string
       required: [id, make, model, year, version, plate, overallStatus, fluids]
@@ -420,7 +433,7 @@ components:
         fluids:
           type: array
           items:
-            $ref: "#/components/schemas/FluidStatus"
+            $ref: "#/components/schemas/FluidReading"
       required: [make, model, year, version, plate]
 
     HistoryRecord:
