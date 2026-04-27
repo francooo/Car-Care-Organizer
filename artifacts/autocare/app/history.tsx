@@ -62,7 +62,7 @@ function groupByVehicleAndDate(records: MaintenanceRecord[]) {
   return Object.entries(groups).map(([title, data]) => ({ title, data }));
 }
 
-function RecordItem({ record, colors }: { record: MaintenanceRecord; colors: any }) {
+function RecordItem({ record, colors }: { record: MaintenanceRecord; colors: ReturnType<typeof import("@/hooks/useColors").useColors> }) {
   const time = new Date(record.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const bgStatus = record.status === "completed" ? colors.successLight : record.status === "partial" ? colors.warningLight : colors.surface;
   const textStatus = record.status === "completed" ? colors.success : record.status === "partial" ? colors.warning : colors.textSecondary;

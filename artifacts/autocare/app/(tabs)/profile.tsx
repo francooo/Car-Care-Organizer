@@ -39,7 +39,7 @@ function SettingsItem({
   );
 }
 
-function Section({ title, children, colors }: { title: string; children: React.ReactNode; colors: any }) {
+function Section({ title, children, colors }: { title: string; children: React.ReactNode; colors: ReturnType<typeof import("@/hooks/useColors").useColors> }) {
   return (
     <View style={styles.section}>
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{title}</Text>

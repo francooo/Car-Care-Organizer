@@ -3,13 +3,23 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: AutoCare AI API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: scan
+    description: Engine scan / AI diagnostics
+  - name: chat
+    description: AI mechanic chat
+  - name: vehicles
+    description: Vehicle management
+  - name: history
+    description: Maintenance history
 paths:
   /healthz:
     get:
@@ -24,6 +34,265 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: authRegister
+      tags: [auth]
+      summary: Register a new user (mock)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+              required: [email]
+      responses:
+        "200":
+          description: Registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Missing email
+
+  /auth/login:
+    post:
+      operationId: authLogin
+      tags: [auth]
+      summary: Login user (mock)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+              required: [email]
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Missing email
+
+  /auth/logout:
+    post:
+      operationId: authLogout
+      tags: [auth]
+      summary: Logout user
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required: [success]
+
+  /scan:
+    post:
+      operationId: createScan
+      tags: [scan]
+      summary: Analyze engine image with AI vision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  description: Base64 encoded image
+                vehicleId:
+                  type: string
+              required: [image]
+      responses:
+        "200":
+          description: Scan results with fluid diagnostics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanResult"
+        "400":
+          description: Missing image
+        "500":
+          description: AI analysis failed
+
+  /scan/{id}:
+    get:
+      operationId: getScan
+      tags: [scan]
+      summary: Get a scan result by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Scan result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanResult"
+        "404":
+          description: Scan not found
+
+  /chat:
+    post:
+      operationId: chatStream
+      tags: [chat]
+      summary: Stream AI mechanic response (SSE)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messages:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ChatMessage"
+                vehicleContext:
+                  type: string
+              required: [messages]
+      responses:
+        "200":
+          description: Server-sent events stream of tokens
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /vehicles:
+    get:
+      operationId: listVehicles
+      tags: [vehicles]
+      summary: List all vehicles
+      responses:
+        "200":
+          description: Vehicle list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vehicle"
+    post:
+      operationId: createVehicle
+      tags: [vehicles]
+      summary: Add a vehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleInput"
+      responses:
+        "201":
+          description: Vehicle created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+
+  /vehicles/{id}:
+    put:
+      operationId: updateVehicle
+      tags: [vehicles]
+      summary: Update a vehicle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleInput"
+      responses:
+        "200":
+          description: Updated vehicle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+        "404":
+          description: Vehicle not found
+    delete:
+      operationId: deleteVehicle
+      tags: [vehicles]
+      summary: Delete a vehicle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /history:
+    get:
+      operationId: listHistory
+      tags: [history]
+      summary: List maintenance history records
+      responses:
+        "200":
+          description: History list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HistoryRecord"
+    post:
+      operationId: createHistory
+      tags: [history]
+      summary: Add a maintenance history record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HistoryRecordInput"
+      responses:
+        "201":
+          description: Record created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HistoryRecord"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +300,165 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+      required: [token, user]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+      required: [id, email]
+
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+      required: [role, content]
+
+    FluidStatus:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [oil, coolant, brake, power, washer, battery]
+        level:
+          type: string
+          enum: [ok, low, critical, unknown]
+        confidence:
+          type: number
+        note:
+          type: string
+      required: [type, level, confidence]
+
+    ScanResult:
+      type: object
+      properties:
+        scanId:
+          type: string
+        vehicleId:
+          type: string
+        fluids:
+          type: array
+          items:
+            $ref: "#/components/schemas/FluidStatus"
+        overallStatus:
+          type: string
+          enum: [ok, warning, critical]
+        summary:
+          type: string
+        createdAt:
+          type: string
+      required: [scanId, fluids, overallStatus, summary, createdAt]
+
+    Vehicle:
+      type: object
+      properties:
+        id:
+          type: string
+        make:
+          type: string
+        model:
+          type: string
+        year:
+          type: integer
+        version:
+          type: string
+        plate:
+          type: string
+        nickname:
+          type: string
+        photoUri:
+          type: string
+        overallStatus:
+          type: string
+          enum: [ok, warning, critical]
+        fluids:
+          type: array
+          items:
+            $ref: "#/components/schemas/FluidStatus"
+        createdAt:
+          type: string
+      required: [id, make, model, year, version, plate, overallStatus, fluids]
+
+    VehicleInput:
+      type: object
+      properties:
+        make:
+          type: string
+        model:
+          type: string
+        year:
+          type: integer
+        version:
+          type: string
+        plate:
+          type: string
+        nickname:
+          type: string
+        photoUri:
+          type: string
+        overallStatus:
+          type: string
+          enum: [ok, warning, critical]
+        fluids:
+          type: array
+          items:
+            $ref: "#/components/schemas/FluidStatus"
+      required: [make, model, year, version, plate]
+
+    HistoryRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        vehicleId:
+          type: string
+        vehicleName:
+          type: string
+        vehiclePlate:
+          type: string
+        fluidsHandled:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [completed, partial, scan_only]
+        createdAt:
+          type: string
+      required: [id, vehicleId, vehicleName, vehiclePlate, fluidsHandled, status, createdAt]
+
+    HistoryRecordInput:
+      type: object
+      properties:
+        vehicleId:
+          type: string
+        vehicleName:
+          type: string
+        vehiclePlate:
+          type: string
+        fluidsHandled:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [completed, partial, scan_only]
+      required: [vehicleId, vehicleName, vehiclePlate, fluidsHandled, status]
