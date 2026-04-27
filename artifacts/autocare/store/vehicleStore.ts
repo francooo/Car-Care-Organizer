@@ -14,8 +14,10 @@ export interface FluidReading {
 
 export interface MaintenanceReminder {
   enabled: boolean;
-  intervalDays: number;
+  intervalDays?: number;
+  intervalKm?: number;
   lastServiceDate: string;
+  lastServiceOdometer?: number;
   notificationId?: string;
 }
 
@@ -33,6 +35,7 @@ export interface Vehicle {
   fluids?: FluidReading[];
   overallStatus?: FluidStatus;
   maintenanceSchedule?: MaintenanceSchedule;
+  currentKm?: number;
   createdAt: string;
 }
 

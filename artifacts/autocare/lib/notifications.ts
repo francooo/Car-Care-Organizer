@@ -1,6 +1,7 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { FluidType, MaintenanceReminder, MaintenanceSchedule, Vehicle } from "@/store/vehicleStore";
+import { getLastServiceDatesForVehicle } from "@/lib/historyUtils";
 
 export const FLUID_LABELS: Record<FluidType, string> = {
   oil: "Óleo do Motor",
@@ -20,14 +21,16 @@ export const FLUID_ICONS: Record<FluidType, string> = {
   battery: "zap",
 };
 
-export const DEFAULT_INTERVALS: Record<FluidType, number> = {
-  oil: 180,
-  coolant: 365,
-  brake: 730,
-  power: 365,
-  washer: 30,
-  battery: 365,
+export const DEFAULT_INTERVALS: Record<FluidType, { days: number; km: number | null }> = {
+  oil:     { days: 180,  km: 5000  },
+  coolant: { days: 365,  km: null  },
+  brake:   { days: 730,  km: null  },
+  power:   { days: 365,  km: null  },
+  washer:  { days: 30,   km: null  },
+  battery: { days: 365,  km: null  },
 };
+
+const AVERAGE_KM_PER_DAY = 40;
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -51,6 +54,49 @@ export async function requestNotificationPermissions(): Promise<boolean> {
   }
 }
 
+export function computeEffectiveDueDate(
+  reminder: MaintenanceReminder,
+  currentKm?: number
+): Date {
+  const lastServiceMs = new Date(reminder.lastServiceDate).getTime();
+
+  let dueDateMs = Infinity;
+
+  if (reminder.intervalDays) {
+    const daysDue = lastServiceMs + reminder.intervalDays * 24 * 60 * 60 * 1000;
+    if (daysDue < dueDateMs) dueDateMs = daysDue;
+  }
+
+  if (reminder.intervalKm) {
+    let daysUntilKmDue: number;
+    if (currentKm !== undefined && reminder.lastServiceOdometer !== undefined && currentKm > reminder.lastServiceOdometer) {
+      const kmSinceService = currentKm - reminder.lastServiceOdometer;
+      const kmRemaining = reminder.intervalKm - kmSinceService;
+      const avgKmPerDay = AVERAGE_KM_PER_DAY;
+      daysUntilKmDue = Math.max(0, kmRemaining / avgKmPerDay);
+    } else {
+      daysUntilKmDue = reminder.intervalKm / AVERAGE_KM_PER_DAY;
+    }
+    const kmDue = lastServiceMs + daysUntilKmDue * 24 * 60 * 60 * 1000;
+    if (kmDue < dueDateMs) dueDateMs = kmDue;
+  }
+
+  if (dueDateMs === Infinity) {
+    return new Date(lastServiceMs + 180 * 24 * 60 * 60 * 1000);
+  }
+
+  return new Date(dueDateMs);
+}
+
+export function getDaysUntilDue(reminder: MaintenanceReminder, currentKm?: number): number {
+  const dueDate = computeEffectiveDueDate(reminder, currentKm);
+  return Math.ceil((dueDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+}
+
+export function getNextDueDate(reminder: MaintenanceReminder, currentKm?: number): Date {
+  return computeEffectiveDueDate(reminder, currentKm);
+}
+
 export async function scheduleMaintenanceNotification(
   vehicle: Vehicle,
   fluidType: FluidType,
@@ -58,10 +104,7 @@ export async function scheduleMaintenanceNotification(
 ): Promise<string | null> {
   if (!reminder.enabled || Platform.OS === "web") return null;
 
-  const lastService = new Date(reminder.lastServiceDate);
-  const dueDate = new Date(
-    lastService.getTime() + reminder.intervalDays * 24 * 60 * 60 * 1000
-  );
+  const dueDate = computeEffectiveDueDate(reminder, vehicle.currentKm);
 
   if (dueDate <= new Date()) return null;
 
@@ -94,25 +137,24 @@ export async function applyMaintenanceSchedule(
   vehicle: Vehicle,
   schedule: MaintenanceSchedule
 ): Promise<MaintenanceSchedule> {
+  const historyDates = await getLastServiceDatesForVehicle(vehicle.id);
   const updated: MaintenanceSchedule = {};
 
-  for (const [fluid, reminder] of Object.entries(schedule) as [
-    FluidType,
-    MaintenanceReminder,
-  ][]) {
+  for (const [fluid, reminder] of Object.entries(schedule) as [FluidType, MaintenanceReminder][]) {
     const old = vehicle.maintenanceSchedule?.[fluid];
-
     if (old?.notificationId) {
       await cancelNotification(old.notificationId);
     }
 
+    const effectiveReminder = resolveLastServiceDate(reminder, historyDates[fluid]);
+
     let notificationId: string | undefined;
-    if (reminder.enabled) {
-      const id = await scheduleMaintenanceNotification(vehicle, fluid, reminder);
+    if (effectiveReminder.enabled) {
+      const id = await scheduleMaintenanceNotification(vehicle, fluid, effectiveReminder);
       notificationId = id ?? undefined;
     }
 
-    updated[fluid] = { ...reminder, notificationId };
+    updated[fluid] = { ...effectiveReminder, notificationId };
   }
 
   return updated;
@@ -125,13 +167,15 @@ export async function rescheduleVehicleNotifications(vehicle: Vehicle): Promise<
   return applyMaintenanceSchedule(vehicle, vehicle.maintenanceSchedule);
 }
 
-export function getNextDueDate(reminder: MaintenanceReminder): Date {
-  const last = new Date(reminder.lastServiceDate);
-  return new Date(last.getTime() + reminder.intervalDays * 24 * 60 * 60 * 1000);
-}
-
-export function getDaysUntilDue(reminder: MaintenanceReminder): number {
-  const due = getNextDueDate(reminder);
-  const now = new Date();
-  return Math.ceil((due.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+function resolveLastServiceDate(
+  reminder: MaintenanceReminder,
+  historyDate: string | undefined
+): MaintenanceReminder {
+  if (!historyDate) return reminder;
+  const historyMs = new Date(historyDate).getTime();
+  const manualMs = new Date(reminder.lastServiceDate).getTime();
+  if (historyMs > manualMs) {
+    return { ...reminder, lastServiceDate: historyDate.split("T")[0] };
+  }
+  return reminder;
 }
