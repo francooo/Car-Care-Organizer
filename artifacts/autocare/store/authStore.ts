@@ -88,22 +88,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     router.replace("/(auth)/login");
 
     // Clean up storage and in-memory stores in the background
-    try {
-      if (token) {
-        await fetch(`${BASE_URL}/api/auth/logout`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        }).catch(() => {});
-      }
-    } catch {}
-    await SecureStore.deleteItemAsync(SECURE_TOKEN_KEY).catch(() => {});
-    await AsyncStorage.multiRemove([
-      "@autocare:token",
-      "@autocare:user",
-      "@autocare:vehicles",
-      "@autocare:conversations",
-    ]).catch(() => {});
-    useVehicleStore.getState().reset();
-    useChatStore.getState().reset();
+    await Promise.allSettled([
+      token
+        ? fetch(`${BASE_URL}/api/auth/logout`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+          })
+        : Promise.resolve(),
+      SecureStore.deleteItemAsync(SECURE_TOKEN_KEY),
+      AsyncStorage.multiRemove([
+        "@autocare:token",
+        "@autocare:user",
+        "@autocare:vehicles",
+        "@autocare:conversations",
+      ]),
+      useVehicleStore.getState().reset(),
+      useChatStore.getState().reset(),
+    ]);
   },
 }));
