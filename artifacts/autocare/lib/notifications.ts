@@ -1,7 +1,15 @@
-import * as Notifications from "expo-notifications";
+import type * as NotificationsType from "expo-notifications";
 import { Platform } from "react-native";
 import { FluidType, MaintenanceReminder, MaintenanceSchedule, Vehicle } from "@/store/vehicleStore";
 import { getLastServiceDatesForVehicle } from "@/lib/historyUtils";
+
+// expo-notifications crashes on Expo Go (Android, SDK 53+). Lazy-load so the
+// app still works — features that need push notifications just become no-ops.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+let Notifications: typeof NotificationsType | null = null;
+try {
+  Notifications = require("expo-notifications") as typeof NotificationsType;
+} catch {}
 
 export const FLUID_LABELS: Record<FluidType, string> = {
   oil: "Óleo do Motor",
@@ -32,7 +40,7 @@ export const DEFAULT_INTERVALS: Record<FluidType, { days: number; km: number | n
 
 const AVERAGE_KM_PER_DAY = 40;
 
-Notifications.setNotificationHandler({
+Notifications?.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldShowBanner: true,
@@ -43,7 +51,7 @@ Notifications.setNotificationHandler({
 });
 
 export async function requestNotificationPermissions(): Promise<boolean> {
-  if (Platform.OS === "web") return false;
+  if (Platform.OS === "web" || !Notifications) return false;
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     if (existingStatus === "granted") return true;
@@ -110,6 +118,7 @@ export async function scheduleMaintenanceNotification(
 
   const vehicleName = vehicle.nickname ?? `${vehicle.make} ${vehicle.model}`;
 
+  if (!Notifications) return null;
   try {
     const id = await Notifications.scheduleNotificationAsync({
       content: {
@@ -118,7 +127,7 @@ export async function scheduleMaintenanceNotification(
         data: { vehicleId: vehicle.id, fluidType },
         sound: true,
       },
-      trigger: { date: dueDate } as Notifications.DateTriggerInput,
+      trigger: { date: dueDate } as NotificationsType.DateTriggerInput,
     });
     return id;
   } catch {
@@ -127,7 +136,7 @@ export async function scheduleMaintenanceNotification(
 }
 
 export async function cancelNotification(notificationId: string): Promise<void> {
-  if (Platform.OS === "web") return;
+  if (Platform.OS === "web" || !Notifications) return;
   try {
     await Notifications.cancelScheduledNotificationAsync(notificationId);
   } catch {}

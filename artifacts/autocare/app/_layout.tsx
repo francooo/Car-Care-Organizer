@@ -6,7 +6,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import * as Notifications from "expo-notifications";
+import type * as NotificationsType from "expo-notifications";
 import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef } from "react";
@@ -25,12 +25,20 @@ SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
+// expo-notifications crashes on Expo Go (Android, SDK 53+). Lazy-load it so
+// the app continues to work — push-notification features become no-ops.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+let Notifications: typeof NotificationsType | null = null;
+try {
+  Notifications = require("expo-notifications") as typeof NotificationsType;
+} catch {}
+
 function useNotificationDeepLink() {
-  const notificationListener = useRef<Notifications.Subscription | null>(null);
-  const responseListener = useRef<Notifications.Subscription | null>(null);
+  const notificationListener = useRef<NotificationsType.Subscription | null>(null);
+  const responseListener = useRef<NotificationsType.Subscription | null>(null);
 
   useEffect(() => {
-    if (Platform.OS === "web") return;
+    if (Platform.OS === "web" || !Notifications) return;
 
     notificationListener.current = Notifications.addNotificationReceivedListener(() => {});
 
