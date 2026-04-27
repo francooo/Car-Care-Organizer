@@ -84,6 +84,7 @@ export default function EditVehicleScreen() {
   const [loading, setLoading] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [showErrorToast, setShowErrorToast] = useState(false);
+  const [errorToastMessage, setErrorToastMessage] = useState("Não foi possível atualizar o veículo. Tente novamente.");
   const [historyDates, setHistoryDates] = useState<Partial<Record<FluidType, string>>>({});
   const [schedule, setSchedule] = useState<Record<FluidType, MaintenanceReminder>>(
     () => buildDefaultSchedule(vehicle?.maintenanceSchedule)
@@ -197,6 +198,7 @@ export default function EditVehicleScreen() {
       await loadVehicles(true);
       setShowToast(true);
     } catch {
+      setErrorToastMessage("Não foi possível atualizar o veículo. Tente novamente.");
       setShowErrorToast(true);
     } finally {
       setLoading(false);
@@ -213,8 +215,13 @@ export default function EditVehicleScreen() {
           text: "Excluir",
           style: "destructive",
           onPress: async () => {
-            await deleteVehicle(vehicle!.id);
-            router.replace("/(tabs)");
+            try {
+              await deleteVehicle(vehicle!.id);
+              router.replace("/(tabs)");
+            } catch {
+              setErrorToastMessage("Não foi possível excluir o veículo. Tente novamente.");
+              setShowErrorToast(true);
+            }
           },
         },
       ]
@@ -506,7 +513,7 @@ export default function EditVehicleScreen() {
       <Toast
         type="error"
         visible={showErrorToast}
-        message="Não foi possível atualizar o veículo. Tente novamente."
+        message={errorToastMessage}
         duration={3000}
         onHide={() => setShowErrorToast(false)}
       />
