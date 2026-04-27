@@ -371,8 +371,10 @@ components:
           type: string
           description: Vehicle type detected in image
         confidence:
-          type: number
-          description: AI confidence score (0–1)
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: AI confidence score (0–100 integer)
         summary:
           type: string
         scannedAt:

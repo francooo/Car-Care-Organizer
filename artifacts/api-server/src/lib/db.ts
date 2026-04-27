@@ -10,6 +10,7 @@ export const sql = postgres(connectionString, {
   max: 10,
   idle_timeout: 20,
   connect_timeout: 10,
+  prepare: false,
 });
 
 export async function migrate(): Promise<void> {
@@ -24,16 +25,25 @@ export async function migrate(): Promise<void> {
 
   await sql`
     CREATE TABLE IF NOT EXISTS vehicles (
-      id          TEXT PRIMARY KEY,
-      user_id     TEXT NOT NULL,
-      make        TEXT NOT NULL,
-      model       TEXT NOT NULL,
-      year        INTEGER NOT NULL,
-      plate       TEXT,
-      photo_uri   TEXT,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      id              TEXT PRIMARY KEY,
+      user_id         TEXT NOT NULL,
+      make            TEXT NOT NULL,
+      model           TEXT NOT NULL,
+      year            INTEGER NOT NULL,
+      version         TEXT,
+      nickname        TEXT,
+      plate           TEXT,
+      photo_uri       TEXT,
+      overall_status  TEXT,
+      fluids          JSONB,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+
+  await sql`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS version TEXT`;
+  await sql`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS nickname TEXT`;
+  await sql`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS overall_status TEXT`;
+  await sql`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS fluids JSONB`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS scans (

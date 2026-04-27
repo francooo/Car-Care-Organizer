@@ -132,7 +132,7 @@ export default function ScannerScreen() {
           overallStatus: data.overallStatus,
         });
       }
-      setConfidence(Math.round((data.confidence ?? 0.94) * 100));
+      setConfidence(Math.round(data.confidence ?? 94));
       setScanState("detected");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Não foi possível conectar ao servidor. Verifique sua conexão.";
