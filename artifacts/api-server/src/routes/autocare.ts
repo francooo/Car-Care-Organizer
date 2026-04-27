@@ -369,4 +369,44 @@ router.post("/history", requireAuth, async (req, res) => {
   }
 });
 
+router.put("/history/:id", requireAuth, async (req, res) => {
+  try {
+    const userId = req.userId!;
+    const { id } = req.params;
+    const { overallStatus, summary, fluids } = req.body as {
+      overallStatus?: string; summary?: string; fluids?: unknown[];
+    };
+    const fluidsJson = fluids != null ? JSON.stringify(fluids) : null;
+    const rows = await sql`
+      UPDATE scans SET
+        overall_status = COALESCE(${overallStatus ?? null}, overall_status),
+        summary        = COALESCE(${summary ?? null}, summary),
+        fluids         = COALESCE(${fluidsJson}::jsonb, fluids)
+      WHERE id = ${id} AND user_id = ${userId}
+      RETURNING *
+    `;
+    if (rows.length === 0) { res.status(404).json({ error: "not found or access denied" }); return; }
+    const s = rows[0];
+    res.json({
+      id: s["id"], vehicleId: s["vehicle_id"],
+      overallStatus: s["overall_status"], vehicleDetected: s["vehicle_detected"],
+      confidence: s["confidence"], summary: s["summary"],
+      fluids: s["fluids"], scannedAt: s["scanned_at"],
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Update failed", detail: String(err) });
+  }
+});
+
+router.delete("/history/:id", requireAuth, async (req, res) => {
+  try {
+    const userId = req.userId!;
+    const result = await sql`DELETE FROM scans WHERE id = ${req.params["id"]} AND user_id = ${userId}`;
+    if (result.count === 0) { res.status(404).json({ error: "not found or access denied" }); return; }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Delete failed", detail: String(err) });
+  }
+});
+
 export default router;

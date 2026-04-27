@@ -78,6 +78,13 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (user) {
+      loadVehicles(true);
+      loadConversations();
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
     if (isLoading) return;
     const inAuth = segments[0] === "(auth)";
     if (!user && !inAuth) {
