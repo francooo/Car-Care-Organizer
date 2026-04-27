@@ -30,3 +30,20 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     res.status(500).json({ error: "Auth check failed" });
   }
 }
+
+export async function optionalAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+  if (token) {
+    try {
+      const rows = await sql`SELECT user_id FROM sessions WHERE token = ${token}`;
+      if (rows.length > 0) {
+        req.userId = String(rows[0]["user_id"]);
+      }
+    } catch {
+    }
+  }
+
+  next();
+}

@@ -85,11 +85,7 @@ export default function ScannerScreen() {
 
   async function captureAndAnalyze() {
     if (Platform.OS === "web") {
-      setScanState("analyzing");
-      setTimeout(() => {
-        setConfidence(91);
-        setScanState("detected");
-      }, 2800);
+      await handleGallery();
       return;
     }
     try {
@@ -141,7 +137,7 @@ export default function ScannerScreen() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Não foi possível conectar ao servidor. Verifique sua conexão.";
       setErrorMsg(msg);
-      setScanState("waiting");
+      setScanState("error");
     }
   }
 

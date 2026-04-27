@@ -3,7 +3,7 @@ import { randomBytes } from "crypto";
 import { analyzeMotorImage, streamMechanicResponse } from "../services/groqService";
 import { sql } from "../lib/db";
 import { hashPassword, verifyPassword } from "../lib/password";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, optionalAuth } from "../middlewares/auth";
 
 const router = Router();
 
@@ -112,7 +112,7 @@ router.post("/scan", requireAuth, async (req, res) => {
         ${result.confidence}, ${result.summary},
         ${fluidsJson}::jsonb, NOW()
       )
-    `;
+    `.catch(() => {});
 
     if (vehicleId && vehicleId !== "unknown") {
       const vehicleFluidsJson = JSON.stringify(result.fluids);
@@ -125,6 +125,42 @@ router.post("/scan", requireAuth, async (req, res) => {
     res.json({ scanId, vehicleId: resolvedVehicleId, ...result, scannedAt: new Date().toISOString() });
   } catch (err) {
     res.status(500).json({ error: "Scan failed", detail: String(err) });
+  }
+});
+
+// ── Diagnose (named alias for scan — same auth and persistence behavior) ──
+router.post("/diagnose", requireAuth, async (req, res) => {
+  try {
+    const { image, vehicleId } = req.body as { image?: string; vehicleId?: string };
+    if (!image) { res.status(400).json({ error: "image (base64) required" }); return; }
+
+    const userId = req.userId!;
+    const result = await analyzeMotorImage(image);
+    const scanId = uid();
+    const resolvedVehicleId = vehicleId ?? "unknown";
+
+    const fluidsJson = JSON.stringify(result.fluids);
+    await sql`
+      INSERT INTO scans (id, vehicle_id, user_id, overall_status, vehicle_detected, confidence, summary, fluids, scanned_at)
+      VALUES (
+        ${scanId}, ${resolvedVehicleId}, ${userId},
+        ${result.overallStatus}, ${result.vehicleDetected},
+        ${result.confidence}, ${result.summary},
+        ${fluidsJson}::jsonb, NOW()
+      )
+    `.catch(() => {});
+
+    if (vehicleId && vehicleId !== "unknown") {
+      const vehicleFluidsJson = JSON.stringify(result.fluids);
+      await sql`
+        UPDATE vehicles SET overall_status = ${result.overallStatus}, fluids = ${vehicleFluidsJson}::jsonb
+        WHERE id = ${vehicleId} AND user_id = ${userId}
+      `.catch(() => {});
+    }
+
+    res.json({ scanId, vehicleId: resolvedVehicleId, ...result, scannedAt: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: "Diagnose failed", detail: String(err) });
   }
 });
 
