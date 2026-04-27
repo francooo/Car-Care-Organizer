@@ -101,6 +101,39 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isStreaming: false,
 
   loadConversations: async () => {
+    const token = useAuthStore.getState().token;
+    if (token) {
+      try {
+        const res = await fetch(`${BASE_URL}/api/chat/history`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const apiConvs = await res.json() as Array<{
+            id: string;
+            title: string;
+            messages: Array<{ role: "user" | "assistant"; content: string }>;
+            createdAt: string;
+            updatedAt: string;
+          }>;
+          const conversations: Conversation[] = apiConvs.map(c => ({
+            id: c.id,
+            vehicleId: undefined,
+            vehicleName: c.title,
+            messages: (c.messages ?? []).map((m, i) => ({
+              id: `${c.id}-${i}`,
+              role: m.role,
+              content: m.content,
+              createdAt: c.createdAt,
+            })),
+            createdAt: c.createdAt,
+          }));
+          set({ conversations });
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(conversations.slice(0, 20)));
+          return;
+        }
+      } catch {}
+    }
+
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (raw) set({ conversations: JSON.parse(raw) as Conversation[] });

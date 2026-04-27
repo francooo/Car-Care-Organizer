@@ -28,6 +28,8 @@ function mapVehicle(v: Record<string, unknown>) {
     photoUri: v["photo_uri"] ?? null,
     overallStatus: v["overall_status"] ?? null,
     fluids: v["fluids"] ?? null,
+    maintenanceSchedule: v["maintenance_schedule"] ?? null,
+    currentKm: v["current_km"] ?? null,
     createdAt: v["created_at"],
   };
 }
@@ -258,19 +260,29 @@ router.get("/vehicles", requireAuth, async (req, res) => {
 router.post("/vehicles", requireAuth, async (req, res) => {
   try {
     const userId = req.userId!;
-    const { make, model, year, version, nickname, plate, photoUri } = req.body as {
+    const { make, model, year, version, nickname, plate, photoUri, maintenanceSchedule, currentKm } = req.body as {
       make?: string; model?: string; year?: number;
       version?: string; nickname?: string; plate?: string; photoUri?: string;
+      maintenanceSchedule?: unknown; currentKm?: number;
     };
     if (!make || !model || !year) { res.status(400).json({ error: "make, model and year required" }); return; }
 
     const id = uid();
+    const scheduleJson = maintenanceSchedule != null ? JSON.stringify(maintenanceSchedule) : null;
     await sql`
-      INSERT INTO vehicles (id, user_id, make, model, year, version, nickname, plate, photo_uri)
+      INSERT INTO vehicles (id, user_id, make, model, year, version, nickname, plate, photo_uri, maintenance_schedule, current_km)
       VALUES (${id}, ${userId}, ${make}, ${model}, ${year},
-              ${version ?? null}, ${nickname ?? null}, ${plate ?? null}, ${photoUri ?? null})
+              ${version ?? null}, ${nickname ?? null}, ${plate ?? null}, ${photoUri ?? null},
+              ${scheduleJson}::jsonb,
+              ${currentKm ?? null})
     `;
-    res.status(201).json({ id, userId, make, model, year, version: version ?? null, nickname: nickname ?? null, plate: plate ?? null, photoUri: photoUri ?? null, overallStatus: null, fluids: null, createdAt: new Date().toISOString() });
+    res.status(201).json({
+      id, userId, make, model, year,
+      version: version ?? null, nickname: nickname ?? null, plate: plate ?? null,
+      photoUri: photoUri ?? null, overallStatus: null, fluids: null,
+      maintenanceSchedule: maintenanceSchedule ?? null, currentKm: currentKm ?? null,
+      createdAt: new Date().toISOString(),
+    });
   } catch (err) {
     res.status(500).json({ error: "Create failed", detail: String(err) });
   }
@@ -280,19 +292,23 @@ router.put("/vehicles/:id", requireAuth, async (req, res) => {
   try {
     const userId = req.userId!;
     const { id } = req.params;
-    const { make, model, year, version, nickname, plate, photoUri } = req.body as {
+    const { make, model, year, version, nickname, plate, photoUri, maintenanceSchedule, currentKm } = req.body as {
       make?: string; model?: string; year?: number;
       version?: string; nickname?: string; plate?: string; photoUri?: string;
+      maintenanceSchedule?: unknown; currentKm?: number;
     };
+    const scheduleJson = maintenanceSchedule != null ? JSON.stringify(maintenanceSchedule) : null;
     const rows = await sql`
       UPDATE vehicles SET
-        make       = COALESCE(${make ?? null}, make),
-        model      = COALESCE(${model ?? null}, model),
-        year       = COALESCE(${year ?? null}, year),
-        version    = COALESCE(${version ?? null}, version),
-        nickname   = COALESCE(${nickname ?? null}, nickname),
-        plate      = COALESCE(${plate ?? null}, plate),
-        photo_uri  = COALESCE(${photoUri ?? null}, photo_uri)
+        make                 = COALESCE(${make ?? null}, make),
+        model                = COALESCE(${model ?? null}, model),
+        year                 = COALESCE(${year ?? null}, year),
+        version              = COALESCE(${version ?? null}, version),
+        nickname             = COALESCE(${nickname ?? null}, nickname),
+        plate                = COALESCE(${plate ?? null}, plate),
+        photo_uri            = COALESCE(${photoUri ?? null}, photo_uri),
+        maintenance_schedule = COALESCE(${scheduleJson}::jsonb, maintenance_schedule),
+        current_km           = COALESCE(${currentKm ?? null}, current_km)
       WHERE id = ${id} AND user_id = ${userId}
       RETURNING *
     `;

@@ -1,8 +1,8 @@
 import { Feather } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Platform,
   SectionList,
@@ -12,9 +12,12 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { FluidType } from "@/store/vehicleStore";
+import { FluidType, useVehicleStore } from "@/store/vehicleStore";
+import { useAuthStore } from "@/store/authStore";
 import { useColors } from "@/hooks/useColors";
 import spacing from "@/constants/spacing";
+
+const BASE_URL = `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`;
 
 type MaintenanceStatus = "completed" | "partial" | "scan_only";
 
@@ -37,10 +40,33 @@ const STATUS_LABELS: Record<MaintenanceStatus, string> = {
   completed: "Concluído", partial: "Parcial", scan_only: "Apenas scan",
 };
 
-const MOCK_HISTORY: MaintenanceRecord[] = [
-  { id: "h1", vehicleId: "v1", vehicleName: "Chevrolet Onix", vehiclePlate: "ABC-1D23", fluidsHandled: ["oil", "washer"], status: "completed", createdAt: new Date(Date.now() - 3 * 86400000).toISOString() },
-  { id: "h2", vehicleId: "v2", vehicleName: "Hyundai HB20", vehiclePlate: "XYZ-4E56", fluidsHandled: ["oil"], status: "scan_only", createdAt: new Date(Date.now() - 7 * 86400000).toISOString() },
-];
+interface ApiScan {
+  id: string;
+  vehicleId: string;
+  overallStatus: string;
+  fluids: Array<{ type: FluidType; status: string }> | null;
+  scannedAt: string;
+}
+
+function mapScanToRecord(scan: ApiScan, vehicles: ReturnType<typeof useVehicleStore.getState>["vehicles"]): MaintenanceRecord {
+  const vehicle = vehicles.find(v => v.id === scan.vehicleId);
+  const fluidsHandled: FluidType[] = scan.fluids
+    ? (scan.fluids.map(f => f.type).filter(Boolean) as FluidType[])
+    : [];
+  const status: MaintenanceStatus =
+    scan.overallStatus === "critical" || scan.overallStatus === "warning"
+      ? "partial"
+      : "scan_only";
+  return {
+    id: scan.id,
+    vehicleId: scan.vehicleId,
+    vehicleName: vehicle ? `${vehicle.make} ${vehicle.model}` : "Veículo desconhecido",
+    vehiclePlate: vehicle?.plate ?? "—",
+    fluidsHandled: fluidsHandled.length > 0 ? fluidsHandled : ["oil"],
+    status,
+    createdAt: typeof scan.scannedAt === "string" ? scan.scannedAt : new Date(scan.scannedAt).toISOString(),
+  };
+}
 
 const FILTER_OPTIONS: { label: string; value: FluidType | "all" }[] = [
   { label: "Todos", value: "all" },
@@ -94,16 +120,29 @@ export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
   const [filter, setFilter] = useState<FluidType | "all">("all");
+  const [loading, setLoading] = useState(true);
+  const { vehicles } = useVehicleStore();
+  const { token } = useAuthStore();
 
   useEffect(() => {
     (async () => {
+      setLoading(true);
       try {
-        const raw = await AsyncStorage.getItem("@autocare:history");
-        if (raw) { setRecords(JSON.parse(raw)); return; }
+        if (token) {
+          const res = await fetch(`${BASE_URL}/api/history`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const scans = await res.json() as ApiScan[];
+            setRecords(scans.map(s => mapScanToRecord(s, vehicles)));
+            setLoading(false);
+            return;
+          }
+        }
       } catch {}
-      setRecords(MOCK_HISTORY);
+      setLoading(false);
     })();
-  }, []);
+  }, [token, vehicles]);
 
   const filtered = filter === "all" ? records : records.filter(r => r.fluidsHandled.includes(filter as FluidType));
   const sections = groupByVehicleAndDate(filtered);
@@ -139,7 +178,11 @@ export default function HistoryScreen() {
         />
       </View>
 
-      {sections.length === 0 ? (
+      {loading ? (
+        <View style={styles.emptyState}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : sections.length === 0 ? (
         <View style={styles.emptyState}>
           <Feather name="clock" size={64} color={colors.border} />
           <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Nenhuma manutenção registrada</Text>

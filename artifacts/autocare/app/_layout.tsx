@@ -64,16 +64,17 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   useNotificationDeepLink();
 
   useEffect(() => {
-    loadSession();
-    loadVehicles().then(() => {
+    (async () => {
+      await loadSession();
+      await loadVehicles(true);
+      await loadConversations();
       if (Platform.OS !== "web") {
         const { vehicles } = useVehicleStore.getState();
         vehicles.forEach(v => {
           if (v.maintenanceSchedule) rescheduleVehicleNotifications(v);
         });
       }
-    });
-    loadConversations();
+    })();
   }, []);
 
   useEffect(() => {

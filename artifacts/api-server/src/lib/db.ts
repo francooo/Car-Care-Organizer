@@ -54,6 +54,8 @@ export async function migrate(): Promise<void> {
   await sql`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS nickname TEXT`;
   await sql`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS overall_status TEXT`;
   await sql`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS fluids JSONB`;
+  await sql`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS maintenance_schedule JSONB`;
+  await sql`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS current_km INTEGER`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS scans (
