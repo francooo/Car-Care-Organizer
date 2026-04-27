@@ -106,6 +106,7 @@ interface VehicleState {
   updateVehicle: (id: string, v: Partial<Vehicle>) => Promise<void>;
   deleteVehicle: (id: string) => Promise<void>;
   getVehicle: (id: string) => Vehicle | undefined;
+  reset: () => Promise<void>;
 }
 
 export const useVehicleStore = create<VehicleState>((set, get) => ({
@@ -232,4 +233,11 @@ export const useVehicleStore = create<VehicleState>((set, get) => ({
   },
 
   getVehicle: (id) => get().vehicles.find(v => v.id === id),
+
+  reset: async () => {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEY);
+    } catch {}
+    set({ vehicles: [], loaded: false });
+  },
 }));

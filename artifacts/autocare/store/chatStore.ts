@@ -29,6 +29,7 @@ interface ChatState {
   sendMessage: (content: string, vehicleContext?: string) => Promise<void>;
   setCurrentId: (id: string | null) => void;
   getCurrentConversation: () => Conversation | null;
+  reset: () => Promise<void>;
 }
 
 function msgId(): string {
@@ -157,6 +158,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   setCurrentId: (id) => set({ currentId: id }),
+
+  reset: async () => {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEY);
+    } catch {}
+    set({ conversations: [], currentId: null });
+  },
 
   getCurrentConversation: () => {
     const { conversations, currentId } = get();

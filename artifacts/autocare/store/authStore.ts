@@ -1,5 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
+import { useVehicleStore } from "./vehicleStore";
+import { useChatStore } from "./chatStore";
 
 export interface User {
   id: string;
@@ -76,7 +78,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         });
       }
     } catch {}
-    await AsyncStorage.multiRemove(["@autocare:token", "@autocare:user"]);
+    await AsyncStorage.multiRemove([
+      "@autocare:token",
+      "@autocare:user",
+      "@autocare:vehicles",
+      "@autocare:conversations",
+    ]);
+    await useVehicleStore.getState().reset();
+    await useChatStore.getState().reset();
     set({ user: null, token: null });
   },
 }));
