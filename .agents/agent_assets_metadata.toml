@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "2StnHj0o2lBjqctx-cFWF"
+uri = "file://artifacts/autocare/assets/images/icon.png"
+type = "image"
+title = "autocare ai icon"

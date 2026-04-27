@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/"
+title = "AutoCare AI"
+version = "1.0.0"
+id = "artifacts/autocare"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/" ]
+localPort = 23695
+
+[services.development]
+run = "pnpm --filter @workspace/autocare run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/autocare", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/autocare", "run", "serve" ]
+
+[services.env]
+PORT = "23695"
+BASE_PATH = "/"
