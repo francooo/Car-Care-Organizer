@@ -25,6 +25,7 @@ import {
 import { useColors } from "@/hooks/useColors";
 import { TextInput } from "@/components/ui/TextInput";
 import { Button } from "@/components/ui/Button";
+import { Toast } from "@/components/ui/Toast";
 import spacing from "@/constants/spacing";
 import {
   FLUID_LABELS,
@@ -81,6 +82,7 @@ export default function EditVehicleScreen() {
   const [photoUri, setPhotoUri] = useState<string | undefined>(vehicle?.photoUri);
   const [currentKm, setCurrentKm] = useState(vehicle?.currentKm?.toString() ?? "");
   const [loading, setLoading] = useState(false);
+  const [showToast, setShowToast] = useState(false);
   const [historyDates, setHistoryDates] = useState<Partial<Record<FluidType, string>>>({});
   const [schedule, setSchedule] = useState<Record<FluidType, MaintenanceReminder>>(
     () => buildDefaultSchedule(vehicle?.maintenanceSchedule)
@@ -192,7 +194,7 @@ export default function EditVehicleScreen() {
         maintenanceSchedule: finalSchedule,
       });
       await loadVehicles(true);
-      router.back();
+      setShowToast(true);
     } catch {
       Alert.alert("Erro", "Não foi possível atualizar o veículo.");
     } finally {
@@ -492,6 +494,13 @@ export default function EditVehicleScreen() {
           <Text style={[styles.deleteBtnText, { color: colors.danger }]}>Excluir Veículo</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <Toast
+        visible={showToast}
+        message="Veículo atualizado com sucesso"
+        duration={1800}
+        onHide={() => router.back()}
+      />
     </View>
   );
 }
