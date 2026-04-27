@@ -1,20 +1,13 @@
 import { Router } from "express";
 import { analyzeMotorImage, streamMechanicResponse } from "../services/groqService";
 import { sql } from "../lib/db";
+import { hashPassword, verifyPassword } from "../lib/password";
+import { requireAuth } from "../middlewares/auth";
 
 const router = Router();
 
 function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-}
-
-// ── Helpers ───────────────────────────────────────────────────
-function requireUserId(userId: string | undefined, res: Parameters<Router>[1]): userId is string {
-  if (!userId) {
-    res.status(401).json({ error: "userId required" });
-    return false;
-  }
-  return true;
 }
 
 function mapVehicle(v: Record<string, unknown>) {
@@ -37,16 +30,21 @@ function mapVehicle(v: Record<string, unknown>) {
 // ── Auth ──────────────────────────────────────────────────────
 router.post("/auth/register", async (req, res) => {
   try {
-    const { name, email, password: _pw } = req.body as { name?: string; email?: string; password?: string };
+    const { name, email, password } = req.body as { name?: string; email?: string; password?: string };
     if (!email) { res.status(400).json({ error: "email required" }); return; }
+    if (!password || password.length < 4) { res.status(400).json({ error: "password must be at least 4 characters" }); return; }
 
     const existing = await sql`SELECT id FROM users WHERE email = ${email}`;
     if (existing.length > 0) { res.status(409).json({ error: "Email já cadastrado" }); return; }
 
     const id = uid();
     const userName = name ?? email.split("@")[0];
-    await sql`INSERT INTO users (id, name, email) VALUES (${id}, ${userName}, ${email})`;
-    res.status(201).json({ token: "jwt-" + uid(), user: { id, name: userName, email } });
+    const hash = hashPassword(password);
+    await sql`INSERT INTO users (id, name, email, password_hash) VALUES (${id}, ${userName}, ${email}, ${hash})`;
+
+    const token = "tok-" + uid();
+    await sql`INSERT INTO sessions (token, user_id) VALUES (${token}, ${id})`;
+    res.status(201).json({ token, user: { id, name: userName, email } });
   } catch (err) {
     res.status(500).json({ error: "Registration failed", detail: String(err) });
   }
@@ -54,57 +52,69 @@ router.post("/auth/register", async (req, res) => {
 
 router.post("/auth/login", async (req, res) => {
   try {
-    const { email } = req.body as { email?: string };
-    if (!email) { res.status(400).json({ error: "email required" }); return; }
+    const { email, password } = req.body as { email?: string; password?: string };
+    if (!email || !password) { res.status(400).json({ error: "email and password required" }); return; }
 
-    const rows = await sql`SELECT id, name, email FROM users WHERE email = ${email}`;
-    let user: { id: string; name: string; email: string };
+    const rows = await sql`SELECT id, name, email, password_hash FROM users WHERE email = ${email}`;
     if (rows.length === 0) {
-      const id = uid();
-      const name = email.split("@")[0];
-      await sql`INSERT INTO users (id, name, email) VALUES (${id}, ${name}, ${email})`;
-      user = { id, name, email };
-    } else {
-      user = { id: String(rows[0]["id"]), name: String(rows[0]["name"]), email: String(rows[0]["email"]) };
+      res.status(401).json({ error: "Credenciais inválidas" });
+      return;
     }
-    res.json({ token: "jwt-" + uid(), user });
+
+    const user = rows[0];
+    const storedHash = user["password_hash"] as string | null;
+    // Accept login for legacy accounts without a password hash (migration compatibility)
+    if (storedHash && !verifyPassword(password, storedHash)) {
+      res.status(401).json({ error: "Credenciais inválidas" });
+      return;
+    }
+
+    const token = "tok-" + uid();
+    await sql`INSERT INTO sessions (token, user_id) VALUES (${token}, ${String(user["id"])})`;
+    res.json({ token, user: { id: user["id"], name: user["name"], email: user["email"] } });
   } catch (err) {
     res.status(500).json({ error: "Login failed", detail: String(err) });
   }
 });
 
-router.post("/auth/logout", (_req, res) => {
-  res.json({ success: true });
+router.post("/auth/logout", requireAuth, async (req, res) => {
+  try {
+    const authHeader = req.headers["authorization"];
+    const token = authHeader?.slice(7);
+    if (token) await sql`DELETE FROM sessions WHERE token = ${token}`;
+    res.json({ success: true });
+  } catch {
+    res.json({ success: true });
+  }
 });
 
 // ── Scan / Diagnóstico ────────────────────────────────────────
-router.post("/scan", async (req, res) => {
+router.post("/scan", requireAuth, async (req, res) => {
   try {
-    const { image, vehicleId, userId } = req.body as { image?: string; vehicleId?: string; userId?: string };
+    const { image, vehicleId } = req.body as { image?: string; vehicleId?: string };
     if (!image) { res.status(400).json({ error: "image (base64) required" }); return; }
 
+    const userId = req.userId!;
     const result = await analyzeMotorImage(image);
     const scanId = uid();
     const resolvedVehicleId = vehicleId ?? "unknown";
-    const resolvedUserId = userId ?? "anonymous";
 
     const fluidsJson = JSON.stringify(result.fluids);
     await sql`
       INSERT INTO scans (id, vehicle_id, user_id, overall_status, vehicle_detected, confidence, summary, fluids, scanned_at)
       VALUES (
-        ${scanId}, ${resolvedVehicleId}, ${resolvedUserId},
+        ${scanId}, ${resolvedVehicleId}, ${userId},
         ${result.overallStatus}, ${result.vehicleDetected},
         ${result.confidence}, ${result.summary},
         ${fluidsJson}::jsonb, NOW()
       )
     `;
 
-    // Update vehicle's last known status if vehicleId is real
     if (vehicleId && vehicleId !== "unknown") {
       const vehicleFluidsJson = JSON.stringify(result.fluids);
       await sql`
         UPDATE vehicles SET overall_status = ${result.overallStatus}, fluids = ${vehicleFluidsJson}::jsonb
-        WHERE id = ${vehicleId} AND user_id = ${resolvedUserId}
+        WHERE id = ${vehicleId} AND user_id = ${userId}
       `.catch(() => {});
     }
 
@@ -114,9 +124,10 @@ router.post("/scan", async (req, res) => {
   }
 });
 
-router.get("/scan/:id", async (req, res) => {
+router.get("/scan/:id", requireAuth, async (req, res) => {
   try {
-    const rows = await sql`SELECT * FROM scans WHERE id = ${req.params["id"]}`;
+    const userId = req.userId!;
+    const rows = await sql`SELECT * FROM scans WHERE id = ${req.params["id"]} AND user_id = ${userId}`;
     if (rows.length === 0) { res.status(404).json({ error: "scan not found" }); return; }
     const s = rows[0];
     res.json({
@@ -131,13 +142,13 @@ router.get("/scan/:id", async (req, res) => {
 });
 
 // ── Chat streaming (SSE) ──────────────────────────────────────
-router.post("/chat", async (req, res) => {
+router.post("/chat", requireAuth, async (req, res) => {
   try {
-    const { messages, vehicleContext, conversationId, userId } = req.body as {
+    const userId = req.userId!;
+    const { messages, vehicleContext, conversationId } = req.body as {
       messages: Array<{ role: "user" | "assistant"; content: string }>;
       vehicleContext?: string;
       conversationId?: string;
-      userId?: string;
     };
     if (!messages || messages.length === 0) { res.status(400).json({ error: "messages required" }); return; }
 
@@ -155,18 +166,16 @@ router.post("/chat", async (req, res) => {
     res.write(`data: ${JSON.stringify({ done: true, fullContent })}\n\n`);
     res.end();
 
-    if (userId) {
-      const lastUser = [...messages].reverse().find(m => m.role === "user");
-      const title = lastUser ? lastUser.content.slice(0, 60) : "Conversa";
-      const convId = conversationId ?? uid();
-      const allMsgs = [...messages, { role: "assistant", content: fullContent }];
-      const msgsJson = JSON.stringify(allMsgs);
-      sql`
-        INSERT INTO chat_history (id, user_id, title, messages, created_at, updated_at)
-        VALUES (${convId}, ${userId}, ${title}, ${msgsJson}::jsonb, NOW(), NOW())
-        ON CONFLICT (id) DO UPDATE SET messages = ${msgsJson}::jsonb, updated_at = NOW()
-      `.catch(e => console.error("chat persist error:", e));
-    }
+    const lastUser = [...messages].reverse().find(m => m.role === "user");
+    const title = lastUser ? lastUser.content.slice(0, 60) : "Conversa";
+    const convId = conversationId ?? uid();
+    const allMsgs = [...messages, { role: "assistant", content: fullContent }];
+    const msgsJson = JSON.stringify(allMsgs);
+    sql`
+      INSERT INTO chat_history (id, user_id, title, messages, created_at, updated_at)
+      VALUES (${convId}, ${userId}, ${title}, ${msgsJson}::jsonb, NOW(), NOW())
+      ON CONFLICT (id) DO UPDATE SET messages = ${msgsJson}::jsonb, updated_at = NOW()
+    `.catch(e => console.error("chat persist error:", e));
   } catch (err) {
     if (!res.headersSent) {
       res.status(500).json({ error: "Chat failed", detail: String(err) });
@@ -178,10 +187,9 @@ router.post("/chat", async (req, res) => {
 });
 
 // ── Chat History ──────────────────────────────────────────────
-router.get("/chat/history", async (req, res) => {
+router.get("/chat/history", requireAuth, async (req, res) => {
   try {
-    const userId = req.query["userId"] as string | undefined;
-    if (!userId) { res.json([]); return; }
+    const userId = req.userId!;
     const rows = await sql`
       SELECT id, title, messages, created_at, updated_at
       FROM chat_history WHERE user_id = ${userId}
@@ -197,24 +205,23 @@ router.get("/chat/history", async (req, res) => {
 });
 
 // ── Vehicles ──────────────────────────────────────────────────
-router.get("/vehicles", async (req, res) => {
+router.get("/vehicles", requireAuth, async (req, res) => {
   try {
-    const userId = req.query["userId"] as string | undefined;
-    if (!requireUserId(userId, res)) return;
+    const userId = req.userId!;
     const rows = await sql`SELECT * FROM vehicles WHERE user_id = ${userId} ORDER BY created_at DESC`;
-    res.json(rows.map(mapVehicle));
+    res.json(rows.map(v => mapVehicle(v as Record<string, unknown>)));
   } catch (err) {
     res.status(500).json({ error: "Fetch failed", detail: String(err) });
   }
 });
 
-router.post("/vehicles", async (req, res) => {
+router.post("/vehicles", requireAuth, async (req, res) => {
   try {
-    const { userId, make, model, year, version, nickname, plate, photoUri } = req.body as {
-      userId?: string; make?: string; model?: string; year?: number;
+    const userId = req.userId!;
+    const { make, model, year, version, nickname, plate, photoUri } = req.body as {
+      make?: string; model?: string; year?: number;
       version?: string; nickname?: string; plate?: string; photoUri?: string;
     };
-    if (!requireUserId(userId, res)) return;
     if (!make || !model || !year) { res.status(400).json({ error: "make, model and year required" }); return; }
 
     const id = uid();
@@ -229,15 +236,14 @@ router.post("/vehicles", async (req, res) => {
   }
 });
 
-router.put("/vehicles/:id", async (req, res) => {
+router.put("/vehicles/:id", requireAuth, async (req, res) => {
   try {
+    const userId = req.userId!;
     const { id } = req.params;
-    const { userId, make, model, year, version, nickname, plate, photoUri } = req.body as {
-      userId?: string; make?: string; model?: string; year?: number;
+    const { make, model, year, version, nickname, plate, photoUri } = req.body as {
+      make?: string; model?: string; year?: number;
       version?: string; nickname?: string; plate?: string; photoUri?: string;
     };
-    if (!requireUserId(userId, res)) return;
-
     const rows = await sql`
       UPDATE vehicles SET
         make       = COALESCE(${make ?? null}, make),
@@ -257,10 +263,9 @@ router.put("/vehicles/:id", async (req, res) => {
   }
 });
 
-router.delete("/vehicles/:id", async (req, res) => {
+router.delete("/vehicles/:id", requireAuth, async (req, res) => {
   try {
-    const userId = req.query["userId"] as string | undefined;
-    if (!requireUserId(userId, res)) return;
+    const userId = req.userId!;
     const result = await sql`DELETE FROM vehicles WHERE id = ${req.params["id"]} AND user_id = ${userId}`;
     if (result.count === 0) { res.status(404).json({ error: "not found or access denied" }); return; }
     res.json({ success: true });
@@ -269,15 +274,11 @@ router.delete("/vehicles/:id", async (req, res) => {
   }
 });
 
-// ── History (scan history per user) ──────────────────────────
-router.get("/history", async (req, res) => {
+// ── History ───────────────────────────────────────────────────
+router.get("/history", requireAuth, async (req, res) => {
   try {
-    const userId = req.query["userId"] as string | undefined;
-    if (!requireUserId(userId, res)) return;
-    const rows = await sql`
-      SELECT * FROM scans WHERE user_id = ${userId}
-      ORDER BY scanned_at DESC LIMIT 100
-    `;
+    const userId = req.userId!;
+    const rows = await sql`SELECT * FROM scans WHERE user_id = ${userId} ORDER BY scanned_at DESC LIMIT 100`;
     res.json(rows.map(s => ({
       id: s["id"], vehicleId: s["vehicle_id"], overallStatus: s["overall_status"],
       vehicleDetected: s["vehicle_detected"], confidence: s["confidence"],
@@ -288,21 +289,20 @@ router.get("/history", async (req, res) => {
   }
 });
 
-router.post("/history", async (req, res) => {
+router.post("/history", requireAuth, async (req, res) => {
   try {
-    const { userId, vehicleId, overallStatus, vehicleDetected, confidence, summary, fluids } = req.body as {
-      userId?: string; vehicleId?: string; overallStatus?: string; vehicleDetected?: string;
+    const userId = req.userId!;
+    const { vehicleId, overallStatus, vehicleDetected, confidence, summary, fluids } = req.body as {
+      vehicleId?: string; overallStatus?: string; vehicleDetected?: string;
       confidence?: number; summary?: string; fluids?: unknown[];
     };
-    if (!requireUserId(userId, res)) return;
-
     const id = uid();
     const fluidsJson = JSON.stringify(fluids ?? []);
     await sql`
       INSERT INTO scans (id, vehicle_id, user_id, overall_status, vehicle_detected, confidence, summary, fluids, scanned_at)
       VALUES (
         ${id}, ${vehicleId ?? "unknown"}, ${userId},
-        ${overallStatus ?? "ok"}, ${vehicleDetected ?? "Unknown vehicle"},
+        ${overallStatus ?? "ok"}, ${vehicleDetected ?? "Unknown"},
         ${confidence ?? 0}, ${summary ?? ""},
         ${fluidsJson}::jsonb, NOW()
       )

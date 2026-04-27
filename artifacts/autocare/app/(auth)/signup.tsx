@@ -46,8 +46,8 @@ export default function SignupScreen() {
     try {
       await signup(name, email, password);
       router.replace("/(tabs)");
-    } catch {
-      setError("Erro ao criar conta. Tente novamente.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao criar conta. Tente novamente.");
     } finally {
       setLoading(false);
     }

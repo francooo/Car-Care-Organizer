@@ -52,23 +52,15 @@ export default function LoginScreen() {
     try {
       await login(email, password);
       router.replace("/(tabs)");
-    } catch {
-      setError("Credenciais inválidas. Tente novamente.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Credenciais inválidas. Tente novamente.");
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleGoogle() {
-    setLoading(true);
-    try {
-      await login("usuario@google.com", "mock");
-      router.replace("/(tabs)");
-    } catch {
-      setError("Erro ao entrar com Google.");
-    } finally {
-      setLoading(false);
-    }
+  function handleGoogle() {
+    setError("Login com Google em breve. Por favor, use e-mail e senha.");
   }
 
   return (

@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
+import { useAuthStore } from "./authStore";
 
 export interface ChatMessage {
   id: string;
@@ -30,10 +31,68 @@ interface ChatState {
   getCurrentConversation: () => Conversation | null;
 }
 
+function msgId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+}
+
 async function save(conversations: Conversation[]) {
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(conversations.slice(0, 20)));
   } catch {}
+}
+
+/**
+ * Parse SSE events from a ReadableStream with proper buffering.
+ * Accumulates raw bytes across chunks, splits on double-newlines,
+ * and only yields complete `data: ...` lines — never partial ones.
+ */
+async function* parseSse(
+  stream: ReadableStream<Uint8Array>
+): AsyncGenerator<{ token?: string; done?: boolean; error?: string }> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // SSE events are separated by \n\n
+      const events = buffer.split("\n\n");
+      // Keep the last (potentially incomplete) chunk in the buffer
+      buffer = events.pop() ?? "";
+
+      for (const event of events) {
+        for (const line of event.split("\n")) {
+          if (line.startsWith("data: ")) {
+            try {
+              const payload = JSON.parse(line.slice(6)) as { token?: string; done?: boolean; error?: string };
+              yield payload;
+            } catch {
+              // Ignore malformed JSON in an SSE frame
+            }
+          }
+        }
+      }
+    }
+
+    // Flush remaining buffer after stream closes
+    if (buffer.trim()) {
+      for (const line of buffer.split("\n")) {
+        if (line.startsWith("data: ")) {
+          try {
+            const payload = JSON.parse(line.slice(6)) as { token?: string; done?: boolean; error?: string };
+            yield payload;
+          } catch {}
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -44,14 +103,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
   loadConversations: async () => {
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      if (raw) set({ conversations: JSON.parse(raw) });
+      if (raw) set({ conversations: JSON.parse(raw) as Conversation[] });
     } catch {}
   },
 
   startConversation: (vehicleId, vehicleName, initialMsg) => {
-    const id = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    const id = msgId();
     const greeting: ChatMessage = {
-      id: Date.now().toString(36) + "g",
+      id: msgId() + "g",
       role: "assistant",
       content: initialMsg ??
         `Olá! Sou o Especialista AutoCare AI. Tenho mais de 20 anos de experiência em mecânica automotiva e estou aqui para ajudar${vehicleName ? ` com o seu ${vehicleName}` : ""}. Como posso te ajudar?`,
@@ -79,12 +138,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (!conv) return;
 
     const userMsg: ChatMessage = {
-      id: Date.now().toString(36) + "u",
+      id: msgId() + "u",
       role: "user",
       content,
       createdAt: new Date().toISOString(),
     };
 
+    // Build message history for API (exclude the initial greeting)
     const messagesForApi = [...conv.messages, userMsg]
       .filter(m => m.role !== "assistant" || m.id !== conv.messages[0]?.id)
       .map(m => ({ role: m.role, content: m.content }));
@@ -93,70 +153,56 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const convsWithUser = conversations.map(c => c.id === currentId ? updatedWithUser : c);
     set({ conversations: convsWithUser, isStreaming: true });
 
-    const aiMsgId = Date.now().toString(36) + "a";
+    const aiMsgId = msgId() + "a";
     const aiMsg: ChatMessage = { id: aiMsgId, role: "assistant", content: "", createdAt: new Date().toISOString() };
-    const convsWithAi = convsWithUser.map(c =>
-      c.id === currentId ? { ...c, messages: [...c.messages, aiMsg] } : c
-    );
-    set({ conversations: convsWithAi });
+    set({
+      conversations: convsWithUser.map(c =>
+        c.id === currentId ? { ...c, messages: [...c.messages, aiMsg] } : c
+      ),
+    });
 
     try {
+      const token = useAuthStore.getState().token;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const res = await fetch(`${BASE_URL}/api/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: messagesForApi, vehicleContext }),
+        headers,
+        body: JSON.stringify({ messages: messagesForApi, vehicleContext, conversationId: currentId }),
       });
 
-      if (res.ok && res.body) {
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let accumulated = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n");
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const parsed = JSON.parse(line.slice(6)) as { token?: string; done?: boolean; error?: string };
-                if (parsed.token) {
-                  accumulated += parsed.token;
-                  const current = get().conversations;
-                  const streamUpdated = current.map(c =>
-                    c.id === currentId
-                      ? {
-                          ...c,
-                          messages: c.messages.map(m =>
-                            m.id === aiMsgId ? { ...m, content: accumulated } : m
-                          ),
-                        }
-                      : c
-                  );
-                  set({ conversations: streamUpdated });
-                }
-              } catch {}
-            }
-          }
-        }
-
-        const finalConvs = get().conversations;
-        save(finalConvs);
-      } else {
-        throw new Error("API unavailable");
+      if (!res.ok || !res.body) {
+        const errData = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(errData.error ?? "Serviço indisponível");
       }
-    } catch {
-      const fallback = getFallbackResponse(content);
-      const current = get().conversations;
-      const fallbackUpdated = current.map(c =>
-        c.id === currentId
-          ? { ...c, messages: c.messages.map(m => m.id === aiMsgId ? { ...m, content: fallback } : m) }
-          : c
-      );
-      set({ conversations: fallbackUpdated });
-      save(fallbackUpdated);
+
+      let accumulated = "";
+      for await (const event of parseSse(res.body)) {
+        if (event.error) throw new Error(event.error);
+        if (event.token) {
+          accumulated += event.token;
+          set({
+            conversations: get().conversations.map(c =>
+              c.id === currentId
+                ? { ...c, messages: c.messages.map(m => m.id === aiMsgId ? { ...m, content: accumulated } : m) }
+                : c
+            ),
+          });
+        }
+      }
+
+      save(get().conversations);
+    } catch (err) {
+      const fallback = err instanceof Error ? err.message : getFallbackResponse(content);
+      set({
+        conversations: get().conversations.map(c =>
+          c.id === currentId
+            ? { ...c, messages: c.messages.map(m => m.id === aiMsgId ? { ...m, content: fallback } : m) }
+            : c
+        ),
+      });
+      save(get().conversations);
     } finally {
       set({ isStreaming: false });
     }
@@ -171,7 +217,6 @@ const FALLBACK_RESPONSES = [
   "Essa situação é urgente! Com o fluido nesse nível, o componente pode ser danificado seriamente. Por favor, não dirija o veículo até resolver esse problema. Siga o guia de manutenção ou leve a um mecânico de confiança.",
 ];
 
-function getFallbackResponse(userMsg: string): string {
-  const idx = Math.floor(Math.random() * FALLBACK_RESPONSES.length);
-  return FALLBACK_RESPONSES[idx] ?? FALLBACK_RESPONSES[0]!;
+function getFallbackResponse(_userMsg: string): string {
+  return FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)] ?? FALLBACK_RESPONSES[0]!;
 }
