@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
 import { useVehicleStore } from "./vehicleStore";
 import { useChatStore } from "./chatStore";
@@ -21,6 +22,8 @@ interface AuthState {
 
 const BASE_URL = `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`;
 
+const SECURE_TOKEN_KEY = "autocare_token";
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   token: null,
@@ -28,7 +31,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   loadSession: async () => {
     try {
-      const token = await AsyncStorage.getItem("@autocare:token");
+      let token = await SecureStore.getItemAsync(SECURE_TOKEN_KEY);
+      if (!token) {
+        const legacy = await AsyncStorage.getItem("@autocare:token");
+        if (legacy) {
+          await SecureStore.setItemAsync(SECURE_TOKEN_KEY, legacy);
+          await AsyncStorage.removeItem("@autocare:token");
+          token = legacy;
+        }
+      }
       const raw = await AsyncStorage.getItem("@autocare:user");
       if (token && raw) {
         set({ token, user: JSON.parse(raw) as User, isLoading: false });
@@ -48,7 +59,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!res.ok || !data.token || !data.user) {
       throw new Error(data.error ?? "Credenciais inválidas");
     }
-    await AsyncStorage.setItem("@autocare:token", data.token);
+    await SecureStore.setItemAsync(SECURE_TOKEN_KEY, data.token);
     await AsyncStorage.setItem("@autocare:user", JSON.stringify(data.user));
     set({ token: data.token, user: data.user });
   },
@@ -63,7 +74,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!res.ok || !data.token || !data.user) {
       throw new Error(data.error ?? "Erro ao criar conta");
     }
-    await AsyncStorage.setItem("@autocare:token", data.token);
+    await SecureStore.setItemAsync(SECURE_TOKEN_KEY, data.token);
     await AsyncStorage.setItem("@autocare:user", JSON.stringify(data.user));
     set({ token: data.token, user: data.user });
   },
@@ -78,6 +89,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         });
       }
     } catch {}
+    await SecureStore.deleteItemAsync(SECURE_TOKEN_KEY);
     await AsyncStorage.multiRemove([
       "@autocare:token",
       "@autocare:user",
