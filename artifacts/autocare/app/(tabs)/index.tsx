@@ -23,7 +23,7 @@ export default function GarageScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
-  const { vehicles, loadVehicles, deleteVehicle } = useVehicleStore();
+  const { vehicles, loadVehicles, deleteVehicle, isStale } = useVehicleStore();
   const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
@@ -95,6 +95,13 @@ export default function GarageScreen() {
           <Text style={styles.avatarText}>{initials}</Text>
         </TouchableOpacity>
       </View>
+
+      {isStale && (
+        <View style={[styles.staleBanner, { backgroundColor: colors.warning ?? "#F59E0B" }]}>
+          <Feather name="wifi-off" size={14} color="#fff" />
+          <Text style={styles.staleBannerText}>Exibindo dados em cache – puxe para atualizar</Text>
+        </View>
+      )}
 
       <FlatList
         data={vehicles}
@@ -178,5 +185,19 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
     elevation: 4, shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2, shadowRadius: 4,
+  },
+  staleBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: 8,
+  },
+  staleBannerText: {
+    color: "#fff",
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    fontWeight: "500",
+    flexShrink: 1,
   },
 });

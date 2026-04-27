@@ -101,6 +101,7 @@ async function loadCache(): Promise<Vehicle[] | null> {
 interface VehicleState {
   vehicles: Vehicle[];
   loaded: boolean;
+  isStale: boolean;
   loadVehicles: (force?: boolean) => Promise<void>;
   addVehicle: (v: Omit<Vehicle, "id" | "createdAt">) => Promise<Vehicle>;
   updateVehicle: (id: string, v: Partial<Vehicle>) => Promise<void>;
@@ -112,6 +113,7 @@ interface VehicleState {
 export const useVehicleStore = create<VehicleState>((set, get) => ({
   vehicles: [],
   loaded: false,
+  isStale: false,
 
   loadVehicles: async (force = false) => {
     if (get().loaded && !force) return;
@@ -126,7 +128,7 @@ export const useVehicleStore = create<VehicleState>((set, get) => ({
         if (res.ok) {
           const data = await res.json() as ApiVehicle[];
           const vehicles = data.map(mapApiVehicle);
-          set({ vehicles, loaded: true });
+          set({ vehicles, loaded: true, isStale: false });
           await persistCache(vehicles);
           return;
         }
@@ -135,11 +137,11 @@ export const useVehicleStore = create<VehicleState>((set, get) => ({
 
     const cached = await loadCache();
     if (cached && cached.length > 0) {
-      set({ vehicles: cached, loaded: true });
+      set({ vehicles: cached, loaded: true, isStale: true });
       return;
     }
 
-    set({ loaded: true });
+    set({ loaded: true, isStale: false });
   },
 
   addVehicle: async (v) => {
@@ -238,6 +240,6 @@ export const useVehicleStore = create<VehicleState>((set, get) => ({
     try {
       await AsyncStorage.removeItem(STORAGE_KEY);
     } catch {}
-    set({ vehicles: [], loaded: false });
+    set({ vehicles: [], loaded: false, isStale: false });
   },
 }));
