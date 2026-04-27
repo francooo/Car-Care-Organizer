@@ -63,8 +63,7 @@ router.post("/auth/login", async (req, res) => {
 
     const user = rows[0];
     const storedHash = user["password_hash"] as string | null;
-    // Accept login for legacy accounts without a password hash (migration compatibility)
-    if (storedHash && !verifyPassword(password, storedHash)) {
+    if (!storedHash || !verifyPassword(password, storedHash)) {
       res.status(401).json({ error: "Credenciais inválidas" });
       return;
     }

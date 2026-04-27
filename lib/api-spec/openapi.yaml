@@ -39,7 +39,7 @@ paths:
     post:
       operationId: authRegister
       tags: [auth]
-      summary: Register a new user (mock)
+      summary: Register a new user
       requestBody:
         required: true
         content:
@@ -51,22 +51,27 @@ paths:
                   type: string
                 email:
                   type: string
-              required: [email]
+                password:
+                  type: string
+                  minLength: 4
+              required: [email, password]
       responses:
-        "200":
+        "201":
           description: Registered successfully
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthResponse"
         "400":
-          description: Missing email
+          description: Missing or invalid fields
+        "409":
+          description: Email already registered
 
   /auth/login:
     post:
       operationId: authLogin
       tags: [auth]
-      summary: Login user (mock)
+      summary: Login user
       requestBody:
         required: true
         content:
@@ -76,7 +81,9 @@ paths:
               properties:
                 email:
                   type: string
-              required: [email]
+                password:
+                  type: string
+              required: [email, password]
       responses:
         "200":
           description: Logged in
@@ -85,7 +92,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuthResponse"
         "400":
-          description: Missing email
+          description: Missing email or password
+        "401":
+          description: Invalid credentials
 
   /auth/logout:
     post:

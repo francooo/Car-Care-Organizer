@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Vehicle, useVehicleStore } from "@/store/vehicleStore";
+import { useAuthStore } from "@/store/authStore";
 import { useColors } from "@/hooks/useColors";
 import spacing from "@/constants/spacing";
 
@@ -112,9 +113,12 @@ export default function ScannerScreen() {
 
   async function sendToBackend(base64: string) {
     try {
+      const { token } = useAuthStore.getState();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
       const res = await fetch(`${BASE_URL}/api/scan`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ image: base64, vehicleId: selectedId }),
       });
       if (!res.ok) throw new Error(`Erro na análise (${res.status}). Tente novamente.`);
