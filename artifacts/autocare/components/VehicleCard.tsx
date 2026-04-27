@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useRef } from "react";
-import { Animated, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Animated, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { FluidStatus, Vehicle } from "@/store/vehicleStore";
 import { useColors } from "@/hooks/useColors";
 import { StatusBadge } from "./ui/StatusBadge";
@@ -57,9 +57,16 @@ export function VehicleCard({ vehicle, onPress, onLongPress, onScanPress }: Vehi
       ]}
     >
       <View style={styles.topRow}>
-        <View>
+        {vehicle.photoUri ? (
+          <Image source={{ uri: vehicle.photoUri }} style={[styles.thumbnail, { borderColor: colors.border }]} />
+        ) : (
+          <View style={[styles.thumbnailPlaceholder, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Feather name="truck" size={22} color={colors.textSecondary} />
+          </View>
+        )}
+        <View style={{ flex: 1, marginLeft: spacing.sm }}>
           <Text style={[styles.meta, { color: colors.textSecondary }]}>
-            {vehicle.year} · Flex · {vehicle.version}
+            {vehicle.year} · {vehicle.version}
           </Text>
           <Text style={[styles.name, { color: colors.textPrimary }]}>
             {vehicle.nickname ?? `${vehicle.make} ${vehicle.model}`}
@@ -118,7 +125,22 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
+  },
+  thumbnail: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    borderWidth: 1,
+    resizeMode: "cover",
+  },
+  thumbnailPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   meta: {
     fontSize: 12,

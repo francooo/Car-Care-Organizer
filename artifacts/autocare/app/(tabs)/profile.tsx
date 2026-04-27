@@ -1,8 +1,10 @@
 import { Feather } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
+  Appearance,
   Platform,
   ScrollView,
   StyleSheet,
@@ -16,6 +18,8 @@ import { useAuthStore } from "@/store/authStore";
 import { useColors } from "@/hooks/useColors";
 import spacing from "@/constants/spacing";
 import { FeatherIconName } from "@/types/icons";
+
+const THEME_KEY = "@autocare:theme";
 
 function SettingsItem({
   icon, label, onPress, right, destructive, colors,
@@ -54,6 +58,26 @@ export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuthStore();
+  const [isDarkMode, setIsDarkMode] = useState(Appearance.getColorScheme() === "dark");
+
+  useEffect(() => {
+    AsyncStorage.getItem(THEME_KEY).then(val => {
+      if (val === "dark") {
+        setIsDarkMode(true);
+        Appearance.setColorScheme("dark");
+      } else if (val === "light") {
+        setIsDarkMode(false);
+        Appearance.setColorScheme("light");
+      }
+    }).catch(() => {});
+  }, []);
+
+  function handleThemeToggle(value: boolean) {
+    setIsDarkMode(value);
+    const scheme = value ? "dark" : "light";
+    Appearance.setColorScheme(scheme);
+    AsyncStorage.setItem(THEME_KEY, scheme).catch(() => {});
+  }
 
   const initials = user?.name
     ? user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
@@ -92,8 +116,8 @@ export default function ProfileScreen() {
         <SettingsItem icon="lock" label="Alterar senha" onPress={() => {}} colors={colors} />
         <SettingsItem icon="bell" label="Notificações" colors={colors}
           right={<Switch value={true} onValueChange={() => {}} trackColor={{ true: colors.primary }} />} />
-        <SettingsItem icon="moon" label="Tema" colors={colors}
-          right={<Text style={[styles.rightLabel, { color: colors.textSecondary }]}>Sistema</Text>} />
+        <SettingsItem icon="moon" label="Modo escuro" colors={colors}
+          right={<Switch value={isDarkMode} onValueChange={handleThemeToggle} trackColor={{ true: colors.primary }} thumbColor="#fff" />} />
         <SettingsItem icon="globe" label="Idioma" colors={colors}
           right={<Text style={[styles.rightLabel, { color: colors.textSecondary }]}>Português</Text>} />
       </Section>

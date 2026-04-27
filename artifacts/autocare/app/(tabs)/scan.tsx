@@ -84,7 +84,11 @@ export default function ScannerScreen() {
 
   async function captureAndAnalyze() {
     if (Platform.OS === "web") {
-      simulateAnalysis();
+      setScanState("analyzing");
+      setTimeout(() => {
+        setConfidence(91);
+        setScanState("detected");
+      }, 2800);
       return;
     }
     try {
@@ -113,7 +117,7 @@ export default function ScannerScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: base64, vehicleId: selectedId }),
       });
-      if (!res.ok) throw new Error("API error");
+      if (!res.ok) throw new Error(`Erro na análise (${res.status}). Tente novamente.`);
 
       type ScanApiResponse = {
         fluids: Vehicle["fluids"];
@@ -128,19 +132,13 @@ export default function ScannerScreen() {
           overallStatus: data.overallStatus,
         });
       }
-      setConfidence(data.confidence ?? 94);
+      setConfidence(Math.round((data.confidence ?? 0.94) * 100));
       setScanState("detected");
-    } catch {
-      simulateAnalysis();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Não foi possível conectar ao servidor. Verifique sua conexão.";
+      setErrorMsg(msg);
+      setScanState("waiting");
     }
-  }
-
-  function simulateAnalysis() {
-    setScanState("analyzing");
-    setTimeout(() => {
-      setConfidence(91);
-      setScanState("detected");
-    }, 2800);
   }
 
   function handleViewDiagnostic() {
@@ -281,8 +279,11 @@ export default function ScannerScreen() {
                 </Text>
               </View>
               <View style={styles.confidenceBox}>
-                <Text style={[styles.confidencePct, { color: colors.success }]}>{confidence}%</Text>
+                <Text style={[styles.confidencePct, { color: confidence >= 80 ? colors.success : colors.warning }]}>{confidence}%</Text>
                 <Text style={[styles.confidenceLabel, { color: colors.textSecondary }]}>confiança</Text>
+                <View style={[styles.confidenceBarBg, { backgroundColor: colors.border }]}>
+                  <View style={[styles.confidenceBarFill, { width: (confidence / 100) * 60, backgroundColor: confidence >= 80 ? colors.success : colors.warning }]} />
+                </View>
               </View>
             </View>
             <TouchableOpacity
@@ -395,9 +396,11 @@ const styles = StyleSheet.create({
   },
   detectedLabel: { fontSize: 11, fontFamily: "Inter_400Regular" },
   detectedName: { fontSize: 14, fontFamily: "Inter_600SemiBold", fontWeight: "600", marginTop: 2 },
-  confidenceBox: { alignItems: "center" },
+  confidenceBox: { alignItems: "center", minWidth: 64 },
   confidencePct: { fontSize: 22, fontFamily: "Inter_700Bold", fontWeight: "700" },
   confidenceLabel: { fontSize: 10, fontFamily: "Inter_400Regular" },
+  confidenceBarBg: { width: 60, height: 4, borderRadius: 2, marginTop: 4, overflow: "hidden" },
+  confidenceBarFill: { height: 4, borderRadius: 2 },
   mainBtn: {
     height: 52, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm,
   },

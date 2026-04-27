@@ -231,6 +231,15 @@ export default function ChatScreen() {
         styles.inputBar,
         { borderTopColor: colors.border, paddingBottom: insets.bottom + spacing.sm + (Platform.OS === "web" ? 34 : 0) },
       ]}>
+        <TouchableOpacity
+          style={[styles.micBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          activeOpacity={0.7}
+          accessibilityLabel="Entrada por voz (em breve)"
+          accessibilityHint="Microfone para entrada por voz — funcionalidade em breve"
+          testID="mic-btn"
+        >
+          <Feather name="mic" size={18} color={colors.textSecondary} />
+        </TouchableOpacity>
         <RNTextInput
           value={text}
           onChangeText={setText}
@@ -290,6 +299,7 @@ const styles = StyleSheet.create({
     fontSize: 15, fontFamily: "Inter_400Regular",
   },
   sendBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  micBtn: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   historyList: { paddingHorizontal: spacing.md, paddingTop: spacing.md },
   convItem: {
     flexDirection: "row", alignItems: "center", gap: spacing.sm,
