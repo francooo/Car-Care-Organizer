@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FluidType, useVehicleStore } from "@/store/vehicleStore";
 import { useChatStore } from "@/store/chatStore";
 import { useColors } from "@/hooks/useColors";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { FluidCard } from "@/components/FluidCard";
 import spacing from "@/constants/spacing";
 
@@ -70,6 +71,8 @@ export default function DiagnosticScreen() {
           <Feather name="share-2" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
+
+      <OfflineBanner />
 
       <ScrollView
         contentContainerStyle={[

@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "@/store/authStore";
 import { useVehicleStore, Vehicle } from "@/store/vehicleStore";
 import { useColors } from "@/hooks/useColors";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { VehicleCard } from "@/components/VehicleCard";
 import spacing from "@/constants/spacing";
 
@@ -24,6 +25,7 @@ export default function GarageScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const { vehicles, loadVehicles, deleteVehicle, isStale } = useVehicleStore();
+  const { isOffline } = useNetworkStatus();
   const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
@@ -96,10 +98,12 @@ export default function GarageScreen() {
         </TouchableOpacity>
       </View>
 
-      {isStale && (
-        <View style={[styles.staleBanner, { backgroundColor: colors.warning ?? "#F59E0B" }]}>
+      {(isOffline || isStale) && (
+        <View style={[styles.staleBanner, { backgroundColor: isOffline ? colors.danger : colors.warning }]}>
           <Feather name="wifi-off" size={14} color="#fff" />
-          <Text style={styles.staleBannerText}>Exibindo dados em cache – puxe para atualizar</Text>
+          <Text style={styles.staleBannerText}>
+            {isOffline ? "Sem conexão – verifique sua internet" : "Exibindo dados em cache – puxe para atualizar"}
+          </Text>
         </View>
       )}
 

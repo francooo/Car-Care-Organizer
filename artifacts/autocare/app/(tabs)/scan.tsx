@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Vehicle, useVehicleStore } from "@/store/vehicleStore";
 import { useAuthStore } from "@/store/authStore";
 import { useColors } from "@/hooks/useColors";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import spacing from "@/constants/spacing";
 
 type ScanState = "no_permission" | "starting" | "waiting" | "analyzing" | "detected" | "error";
@@ -210,6 +211,8 @@ export default function ScannerScreen() {
           <Feather name="chevron-down" size={12} color="#fff" />
         </TouchableOpacity>
       </View>
+
+      <OfflineBanner />
 
       <Animated.View style={[styles.viewfinder, { opacity: fadeAnim }]}>
         {Platform.OS !== "web" && permission?.granted ? (

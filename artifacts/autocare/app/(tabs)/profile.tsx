@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "@/store/authStore";
 import { useColors } from "@/hooks/useColors";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import spacing from "@/constants/spacing";
 import { FeatherIconName } from "@/types/icons";
 
@@ -91,8 +92,10 @@ export default function ProfileScreen() {
   }
 
   return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <OfflineBanner />
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={{ flex: 1 }}
       contentContainerStyle={[
         styles.content,
         { paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16), paddingBottom: insets.bottom + 100 + (Platform.OS === "web" ? 34 : 0) },
@@ -141,6 +144,7 @@ export default function ProfileScreen() {
         <Text style={[styles.logoutText, { color: colors.danger }]}>Sair da conta</Text>
       </TouchableOpacity>
     </ScrollView>
+    </View>
   );
 }
 
