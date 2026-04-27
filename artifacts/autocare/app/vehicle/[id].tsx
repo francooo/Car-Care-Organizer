@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
+import { persistPickedImage } from "@/lib/persistImage";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -118,7 +119,10 @@ export default function EditVehicleScreen() {
       quality: 0.7,
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
-    if (!res.canceled && res.assets[0]) setPhotoUri(res.assets[0].uri);
+    if (!res.canceled && res.assets[0]) {
+      const persisted = await persistPickedImage(res.assets[0].uri);
+      setPhotoUri(persisted);
+    }
   }
 
   function toggleReminder(fluid: FluidType, value: boolean) {

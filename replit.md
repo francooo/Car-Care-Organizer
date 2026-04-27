@@ -57,4 +57,9 @@ React Native / Expo mobile app for vehicle maintenance AI diagnostics.
 ### Dependencies
 - `@react-native-async-storage/async-storage` — local persistence
 - `expo-image-picker` — gallery photo for scanner
+- `expo-file-system` (^55) — copies picked photos into `Paths.document/vehicle-photos/` so URIs survive Expo Go cache eviction
 - Pre-installed: expo-router, @expo/vector-icons, react-native-reanimated, react-native-keyboard-controller
+
+### Expo Go font / image gotchas
+- `@expo/vector-icons` v15 no longer auto-bundles fonts in Expo Go — `_layout.tsx` spreads `...Feather.font` into the `useFonts` call, otherwise icons render as empty squares.
+- `ImagePicker` returns cache URIs (e.g. `cache/ImagePicker/xxx.jpg`) that Android wipes between sessions. `lib/persistImage.ts` copies the picked file into the document directory before persisting the URI.
