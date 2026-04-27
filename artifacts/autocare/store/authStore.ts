@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
+import { router } from "expo-router";
 import { create } from "zustand";
 import { useVehicleStore } from "./vehicleStore";
 import { useChatStore } from "./chatStore";
@@ -81,23 +82,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     const { token } = get();
+
+    // Navigate away immediately so no private screen is visible while stores clear
+    set({ user: null, token: null });
+    router.replace("/(auth)/login");
+
+    // Clean up storage and in-memory stores in the background
     try {
       if (token) {
         await fetch(`${BASE_URL}/api/auth/logout`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
-        });
+        }).catch(() => {});
       }
     } catch {}
-    await SecureStore.deleteItemAsync(SECURE_TOKEN_KEY);
+    await SecureStore.deleteItemAsync(SECURE_TOKEN_KEY).catch(() => {});
     await AsyncStorage.multiRemove([
       "@autocare:token",
       "@autocare:user",
       "@autocare:vehicles",
       "@autocare:conversations",
-    ]);
-    await useVehicleStore.getState().reset();
-    await useChatStore.getState().reset();
-    set({ user: null, token: null });
+    ]).catch(() => {});
+    useVehicleStore.getState().reset();
+    useChatStore.getState().reset();
   },
 }));
