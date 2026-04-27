@@ -11,6 +11,7 @@ import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef } from "react";
 import { Platform } from "react-native";
+import { rescheduleVehicleNotifications } from "@/lib/notifications";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -64,7 +65,14 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadSession();
-    loadVehicles();
+    loadVehicles().then(() => {
+      if (Platform.OS !== "web") {
+        const { vehicles } = useVehicleStore.getState();
+        vehicles.forEach(v => {
+          if (v.maintenanceSchedule) rescheduleVehicleNotifications(v);
+        });
+      }
+    });
     loadConversations();
   }, []);
 

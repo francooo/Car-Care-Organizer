@@ -107,6 +107,8 @@ export default function EditVehicleScreen() {
     );
   }
 
+  const parsedKm = currentKm ? parseInt(currentKm, 10) : undefined;
+
   async function pickPhoto() {
     const res = await ImagePicker.launchImageLibraryAsync({
       quality: 0.7,
@@ -116,7 +118,23 @@ export default function EditVehicleScreen() {
   }
 
   function toggleReminder(fluid: FluidType, value: boolean) {
-    setSchedule(prev => ({ ...prev, [fluid]: { ...prev[fluid], enabled: value } }));
+    setSchedule(prev => {
+      const rem = prev[fluid];
+      const km = parsedKm;
+      const updates: Partial<MaintenanceReminder> = { enabled: value };
+      if (value && !rem.lastServiceOdometer && km) {
+        updates.lastServiceOdometer = km;
+      }
+      return { ...prev, [fluid]: { ...rem, ...updates } };
+    });
+  }
+
+  function updateLastServiceOdometer(fluid: FluidType, text: string) {
+    const n = parseInt(text.replace(/[^0-9]/g, ""), 10);
+    setSchedule(prev => ({
+      ...prev,
+      [fluid]: { ...prev[fluid], lastServiceOdometer: isNaN(n) || n <= 0 ? undefined : n },
+    }));
   }
 
   function updateIntervalDays(fluid: FluidType, text: string) {
@@ -198,8 +216,6 @@ export default function EditVehicleScreen() {
       ]
     );
   }
-
-  const parsedKm = currentKm ? parseInt(currentKm, 10) : undefined;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -399,6 +415,28 @@ export default function EditVehicleScreen() {
                       placeholder="—"
                       placeholderTextColor={colors.textSecondary}
                       testID={`interval-km-${fluid}`}
+                    />
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                      Hodômetro na revisão (km)
+                    </Text>
+                    <RNTextInput
+                      style={[
+                        styles.detailInput,
+                        {
+                          color: colors.textPrimary,
+                          borderColor: colors.border,
+                          backgroundColor: colors.background,
+                        },
+                      ]}
+                      value={rem.lastServiceOdometer ? String(rem.lastServiceOdometer) : ""}
+                      onChangeText={t => updateLastServiceOdometer(fluid, t)}
+                      keyboardType="number-pad"
+                      maxLength={7}
+                      placeholder={parsedKm ? String(parsedKm) : "—"}
+                      placeholderTextColor={colors.textSecondary}
+                      testID={`last-odometer-${fluid}`}
                     />
                   </View>
                   <View style={styles.detailRow}>
