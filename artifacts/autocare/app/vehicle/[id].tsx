@@ -72,7 +72,7 @@ export default function EditVehicleScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getVehicle, updateVehicle, deleteVehicle } = useVehicleStore();
+  const { getVehicle, updateVehicle, deleteVehicle, loadVehicles } = useVehicleStore();
   const vehicle = getVehicle(id ?? "");
 
   const [version, setVersion] = useState(vehicle?.version ?? "");
@@ -191,6 +191,7 @@ export default function EditVehicleScreen() {
         currentKm: updatedVehicle.currentKm,
         maintenanceSchedule: finalSchedule,
       });
+      await loadVehicles(true);
       router.back();
     } catch {
       Alert.alert("Erro", "Não foi possível atualizar o veículo.");
