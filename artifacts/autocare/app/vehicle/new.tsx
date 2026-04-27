@@ -17,6 +17,7 @@ import { useVehicleStore } from "@/store/vehicleStore";
 import { useColors } from "@/hooks/useColors";
 import { TextInput } from "@/components/ui/TextInput";
 import { Button } from "@/components/ui/Button";
+import { Toast } from "@/components/ui/Toast";
 import spacing from "@/constants/spacing";
 
 const MAKES = ["Chevrolet", "Fiat", "Volkswagen", "Hyundai", "Toyota", "Renault", "Jeep", "Ford", "Honda", "Nissan", "Peugeot", "Citroën"];
@@ -90,6 +91,7 @@ export default function AddVehicleScreen() {
   const [nickname, setNickname] = useState("");
   const [photoUri, setPhotoUri] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
+  const [showToast, setShowToast] = useState(false);
   const [showMake, setShowMake] = useState(false);
   const [showModel, setShowModel] = useState(false);
   const [showYear, setShowYear] = useState(false);
@@ -136,7 +138,7 @@ export default function AddVehicleScreen() {
     try {
       await addVehicle({ make, model, year: parseInt(year, 10), version, plate, nickname: nickname || undefined, photoUri, overallStatus: "ok", fluids: [] });
       await loadVehicles(true);
-      router.back();
+      setShowToast(true);
     } catch {
       Alert.alert("Erro", "Não foi possível salvar o veículo.");
     } finally {
@@ -207,13 +209,20 @@ export default function AddVehicleScreen() {
         <TextInput label="Apelido (opcional)" value={nickname} onChangeText={setNickname} placeholder="Ex: Meu Onix" autoCapitalize="words" />
 
         <View style={{ marginTop: spacing.sm }}>
-          <Button title={loading ? "Salvando…" : "Salvar Veículo"} onPress={handleSave} fullWidth loading={loading} disabled={!isValid || loading} />
+          <Button title={loading ? "Salvando…" : "Salvar Veículo"} onPress={handleSave} fullWidth loading={loading} disabled={!isValid || loading || showToast} />
         </View>
       </ScrollView>
 
       <PickerSheet visible={showMake} title="Selecione a Marca" options={MAKES} onSelect={v => { setMake(v); setModel(""); }} onClose={() => setShowMake(false)} colors={colors} />
       <PickerSheet visible={showModel} title="Selecione o Modelo" options={MODELS_BY_MAKE[make] ?? []} onSelect={setModel} onClose={() => setShowModel(false)} colors={colors} />
       <PickerSheet visible={showYear} title="Selecione o Ano" options={YEARS} onSelect={setYear} onClose={() => setShowYear(false)} colors={colors} />
+
+      <Toast
+        visible={showToast}
+        message="Veículo adicionado com sucesso!"
+        duration={1800}
+        onHide={() => { setShowToast(false); router.back(); }}
+      />
     </View>
   );
 }
