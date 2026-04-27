@@ -481,6 +481,7 @@ export default function EditVehicleScreen() {
             onPress={handleSave}
             fullWidth
             loading={loading}
+            disabled={loading || showToast}
           />
         </View>
 
