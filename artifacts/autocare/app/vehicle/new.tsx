@@ -80,7 +80,7 @@ function PickerSheet({
 export default function AddVehicleScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { addVehicle } = useVehicleStore();
+  const { addVehicle, loadVehicles } = useVehicleStore();
 
   const [make, setMake] = useState("");
   const [model, setModel] = useState("");
@@ -135,6 +135,7 @@ export default function AddVehicleScreen() {
     setLoading(true);
     try {
       await addVehicle({ make, model, year: parseInt(year, 10), version, plate, nickname: nickname || undefined, photoUri, overallStatus: "ok", fluids: [] });
+      await loadVehicles(true);
       router.back();
     } catch {
       Alert.alert("Erro", "Não foi possível salvar o veículo.");

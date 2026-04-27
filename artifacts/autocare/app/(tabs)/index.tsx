@@ -1,11 +1,12 @@
 import { Feather } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React, { useEffect } from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
   ActionSheetIOS,
   Alert,
   FlatList,
   Platform,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -23,8 +24,22 @@ export default function GarageScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const { vehicles, loadVehicles, deleteVehicle } = useVehicleStore();
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { loadVehicles(); }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadVehicles(true);
+    }, [])
+  );
+
+  async function onRefresh() {
+    setRefreshing(true);
+    try {
+      await loadVehicles(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   function handlePress(v: Vehicle) {
     router.push({ pathname: "/(tabs)/scan", params: { vehicleId: v.id } });
@@ -89,7 +104,15 @@ export default function GarageScreen() {
           { paddingBottom: insets.bottom + 100 + (Platform.OS === "web" ? 34 : 0) },
         ]}
         showsVerticalScrollIndicator={false}
-        scrollEnabled={!!vehicles.length}
+        scrollEnabled
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Feather name="truck" size={64} color={colors.border} />
