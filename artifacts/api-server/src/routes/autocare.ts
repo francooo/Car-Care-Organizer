@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomBytes } from "crypto";
 import { analyzeMotorImage, streamMechanicResponse } from "../services/groqService";
 import { sql } from "../lib/db";
 import { hashPassword, verifyPassword } from "../lib/password";
@@ -8,6 +9,10 @@ const router = Router();
 
 function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function secureToken(): string {
+  return randomBytes(32).toString("hex");
 }
 
 function mapVehicle(v: Record<string, unknown>) {
@@ -42,7 +47,7 @@ router.post("/auth/register", async (req, res) => {
     const hash = hashPassword(password);
     await sql`INSERT INTO users (id, name, email, password_hash) VALUES (${id}, ${userName}, ${email}, ${hash})`;
 
-    const token = "tok-" + uid();
+    const token = secureToken();
     await sql`INSERT INTO sessions (token, user_id) VALUES (${token}, ${id})`;
     res.status(201).json({ token, user: { id, name: userName, email } });
   } catch (err) {
@@ -68,7 +73,7 @@ router.post("/auth/login", async (req, res) => {
       return;
     }
 
-    const token = "tok-" + uid();
+    const token = secureToken();
     await sql`INSERT INTO sessions (token, user_id) VALUES (${token}, ${String(user["id"])})`;
     res.json({ token, user: { id: user["id"], name: user["name"], email: user["email"] } });
   } catch (err) {
