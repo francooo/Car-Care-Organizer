@@ -179,34 +179,36 @@ export default function ChatScreen() {
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={m => m.id}
-        inverted
-        contentContainerStyle={styles.messageList}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={isStreaming ? <TypingDots colors={colors} /> : null}
-        ListEmptyComponent={
-          <View style={{ padding: spacing.xl, transform: [{ scaleY: -1 }] }}>
-            <Text style={[styles.emptyChat, { color: colors.textSecondary }]}>
-              Faça uma pergunta sobre seu veículo...
-            </Text>
-            <View style={styles.quickChipsCol}>
-              {QUICK_REPLIES.map(q => (
-                <TouchableOpacity
-                  key={q}
-                  onPress={() => handleSend(q)}
-                  style={[styles.quickChip, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                >
-                  <Text style={[styles.quickChipText, { color: colors.primary }]}>{q}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+      {messages.length === 0 ? (
+        <View style={styles.emptyStateContainer}>
+          {isStreaming ? <TypingDots colors={colors} /> : null}
+          <Text style={[styles.emptyChat, { color: colors.textSecondary }]}>
+            Faça uma pergunta sobre seu veículo...
+          </Text>
+          <View style={styles.quickChipsCol}>
+            {QUICK_REPLIES.map(q => (
+              <TouchableOpacity
+                key={q}
+                onPress={() => handleSend(q)}
+                style={[styles.quickChip, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              >
+                <Text style={[styles.quickChipText, { color: colors.primary }]}>{q}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
-        }
-        renderItem={({ item }) => <ChatBubble msg={item} colors={colors} />}
-      />
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={m => m.id}
+          inverted
+          contentContainerStyle={styles.messageList}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={isStreaming ? <TypingDots colors={colors} /> : null}
+          renderItem={({ item }) => <ChatBubble msg={item} colors={colors} />}
+        />
+      )}
 
       {messages.length > 0 && (
         <FlatList
@@ -284,6 +286,7 @@ const styles = StyleSheet.create({
   bubbleText: { fontSize: 15, fontFamily: "Inter_400Regular", lineHeight: 22 },
   typingDots: { fontSize: 18, letterSpacing: 3 },
   timestamp: { fontSize: 10, fontFamily: "Inter_400Regular", marginTop: 2 },
+  emptyStateContainer: { flex: 1, padding: spacing.xl, justifyContent: "center" },
   emptyChat: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", marginBottom: spacing.md },
   quickChipsCol: { gap: spacing.sm },
   quickRepliesBar: { maxHeight: 44, paddingVertical: spacing.xs },

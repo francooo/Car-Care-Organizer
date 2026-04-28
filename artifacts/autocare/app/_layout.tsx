@@ -123,6 +123,8 @@ function RootLayoutNav() {
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     ...Feather.font,
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    feather: require("../assets/fonts/Feather.ttf"),
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
