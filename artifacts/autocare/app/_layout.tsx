@@ -5,7 +5,6 @@ import {
   Inter_700Bold,
   useFonts,
 } from "@expo-google-fonts/inter";
-import { Feather } from "@expo/vector-icons";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type * as NotificationsType from "expo-notifications";
 import { router, Stack, useSegments } from "expo-router";
@@ -122,9 +121,6 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    ...Feather.font,
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    feather: require("../assets/fonts/Feather.ttf"),
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,

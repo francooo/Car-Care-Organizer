@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { Globe, Zap } from "lucide-react-native";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -78,7 +78,7 @@ export default function LoginScreen() {
       >
         <View style={styles.logoSection}>
           <View style={[styles.logoIcon, { backgroundColor: colors.primary }]}>
-            <Feather name="zap" size={32} color="#fff" />
+            <Zap size={32} color="#fff" />
           </View>
           <Text style={[styles.logoText, { color: colors.textPrimary }]}>AutoCare AI</Text>
           <Text style={[styles.tagline, { color: colors.textSecondary }]}>
@@ -96,7 +96,7 @@ export default function LoginScreen() {
           activeOpacity={0.8}
           testID="google-login-btn"
         >
-          <Feather name="globe" size={18} color={colors.textPrimary} />
+          <Globe size={18} color={colors.textPrimary} />
           <Text style={[styles.googleText, { color: colors.textPrimary }]}>Entrar com Google</Text>
         </TouchableOpacity>
 

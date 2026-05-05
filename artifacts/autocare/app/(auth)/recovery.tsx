@@ -1,3 +1,4 @@
+import { ArrowLeft, Mail } from "lucide-react-native";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -14,7 +15,6 @@ import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/TextInput";
 import { AlertCard } from "@/components/ui/AlertCard";
 import spacing from "@/constants/spacing";
-import { Feather } from "@expo/vector-icons";
 
 export default function RecoveryScreen() {
   const colors = useColors();
@@ -42,11 +42,11 @@ export default function RecoveryScreen() {
     >
       <View style={[styles.container, { paddingTop: insets.top + (Platform.OS === "web" ? 67 : 20) }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Feather name="arrow-left" size={24} color={colors.textPrimary} />
+          <ArrowLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
 
         <View style={[styles.iconBox, { backgroundColor: colors.primaryLight }]}>
-          <Feather name="mail" size={36} color={colors.primary} />
+          <Mail size={36} color={colors.primary} />
         </View>
 
         <Text style={[styles.title, { color: colors.textPrimary }]}>Recuperar senha</Text>

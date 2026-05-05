@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { AlertCircle, Camera, ChevronDown, ChevronLeft } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { persistPickedImage } from "@/lib/persistImage";
@@ -152,7 +152,7 @@ export default function AddVehicleScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { borderBottomColor: colors.border, paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16) }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
-          <Feather name="chevron-left" size={24} color={colors.textPrimary} />
+          <ChevronLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Adicionar Veículo</Text>
         <View style={{ width: 40 }} />
@@ -164,7 +164,7 @@ export default function AddVehicleScreen() {
           testID="form-error-banner"
           style={[styles.formErrorBox, { backgroundColor: colors.dangerLight, borderColor: colors.danger }]}
         >
-          <Feather name="alert-circle" size={14} color={colors.danger} />
+          <AlertCircle size={14} color={colors.danger} />
           <Text accessibilityLiveRegion="polite" style={[styles.formErrorText, { color: colors.danger }]}>{formError}</Text>
         </View>
       ) : null}
@@ -179,7 +179,7 @@ export default function AddVehicleScreen() {
             <Image source={{ uri: photoUri }} style={styles.photoPreview} />
           ) : (
             <>
-              <Feather name="camera" size={28} color={colors.textSecondary} />
+              <Camera size={28} color={colors.textSecondary} />
               <Text style={[styles.photoLabel, { color: colors.textSecondary }]}>Adicionar foto do veículo</Text>
             </>
           )}
@@ -195,7 +195,7 @@ export default function AddVehicleScreen() {
             <Text style={[styles.pickerValue, { color: val ? colors.textPrimary : colors.textSecondary }]}>
               {val || placeholder}
             </Text>
-            <Feather name="chevron-down" size={16} color={colors.textSecondary} />
+            <ChevronDown size={16} color={colors.textSecondary} />
           </TouchableOpacity>
         ))}
 

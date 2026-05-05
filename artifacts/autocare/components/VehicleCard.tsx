@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { Camera, Truck } from "lucide-react-native";
 import React, { useEffect, useRef } from "react";
 import { Animated, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { FluidStatus, Vehicle } from "@/store/vehicleStore";
@@ -61,7 +61,7 @@ export function VehicleCard({ vehicle, onPress, onLongPress, onScanPress }: Vehi
           <Image source={{ uri: vehicle.photoUri }} style={[styles.thumbnail, { borderColor: colors.border }]} />
         ) : (
           <View style={[styles.thumbnailPlaceholder, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Feather name="truck" size={22} color={colors.textSecondary} />
+            <Truck size={22} color={colors.textSecondary} />
           </View>
         )}
         <View style={{ flex: 1, marginLeft: spacing.sm }}>
@@ -107,7 +107,7 @@ export function VehicleCard({ vehicle, onPress, onLongPress, onScanPress }: Vehi
         style={[styles.ctaBanner, { backgroundColor: colors.primaryLight }]}
         activeOpacity={0.8}
       >
-        <Feather name="camera" size={14} color={colors.primary} />
+        <Camera size={14} color={colors.primary} />
         <Text style={[styles.ctaText, { color: colors.primary }]}>Escanear motor agora →</Text>
       </TouchableOpacity>
     </TouchableOpacity>

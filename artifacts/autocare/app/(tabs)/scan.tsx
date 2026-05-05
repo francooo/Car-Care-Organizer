@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { AlertCircle, Camera, CameraOff, ChevronDown, X } from "lucide-react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
@@ -151,7 +151,7 @@ export default function ScannerScreen() {
   if (scanState === "no_permission" || (permission !== null && !permission.granted)) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, justifyContent: "center", alignItems: "center", padding: spacing.xl }]}>
-        <Feather name="camera-off" size={64} color={colors.border} />
+        <CameraOff size={64} color={colors.border} />
         <Text style={[styles.permTitle, { color: colors.textPrimary }]}>Câmera necessária</Text>
         <Text style={[styles.permSub, { color: colors.textSecondary }]}>
           O AutoCare AI precisa da câmera para fotografar o motor e fazer o diagnóstico de fluidos.
@@ -180,7 +180,7 @@ export default function ScannerScreen() {
     <View style={[styles.container, { backgroundColor: "#000" }]}>
       <View style={[styles.topBar, { paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16) }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn} testID="close-scanner-btn">
-          <Feather name="x" size={24} color="#fff" />
+          <X size={24} color="#fff" />
         </TouchableOpacity>
 
         <View style={[styles.aiPill, { backgroundColor: "rgba(0,0,0,0.55)" }]}>
@@ -208,7 +208,7 @@ export default function ScannerScreen() {
           <Text style={styles.vehicleBadgeText} numberOfLines={1}>
             {selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}` : "Selecionar"}
           </Text>
-          <Feather name="chevron-down" size={12} color="#fff" />
+          <ChevronDown size={12} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -219,7 +219,7 @@ export default function ScannerScreen() {
           <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
         ) : (
           <View style={[StyleSheet.absoluteFill, { backgroundColor: "#111827", alignItems: "center", justifyContent: "center" }]}>
-            <Feather name="camera" size={72} color="#374151" />
+            <Camera size={72} color="#374151" />
             <Text style={{ color: "#6B7280", fontSize: 15, fontFamily: "Inter_400Regular", marginTop: 16, textAlign: "center", paddingHorizontal: 32 }}>
               Aponte para o compartimento do motor
             </Text>
@@ -262,7 +262,7 @@ export default function ScannerScreen() {
 
         {scanState === "error" && (
           <View style={styles.errorOverlay}>
-            <Feather name="alert-circle" size={36} color={colors.danger} />
+            <AlertCircle size={36} color={colors.danger} />
             <Text style={styles.errorText}>{errorMsg}</Text>
           </View>
         )}
@@ -310,7 +310,7 @@ export default function ScannerScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <Feather name="camera" size={20} color="#fff" />
+                <Camera size={20} color="#fff" />
                 <Text style={styles.mainBtnText}>Fotografar motor</Text>
               </>
             )}

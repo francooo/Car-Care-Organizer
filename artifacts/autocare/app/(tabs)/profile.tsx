@@ -1,4 +1,3 @@
-import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -18,14 +17,16 @@ import { useAuthStore } from "@/store/authStore";
 import { useColors } from "@/hooks/useColors";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import spacing from "@/constants/spacing";
-import { FeatherIconName } from "@/types/icons";
+import { Icon } from "@/components/Icon";
+import type { IconName } from "@/components/Icon";
+import { ChevronRight, LogOut, Pencil } from "lucide-react-native";
 
 const THEME_KEY = "@autocare:theme";
 
 function SettingsItem({
   icon, label, onPress, right, destructive, colors,
 }: {
-  icon: FeatherIconName; label: string; onPress?: () => void;
+  icon: IconName; label: string; onPress?: () => void;
   right?: React.ReactNode; destructive?: boolean;
   colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
 }) {
@@ -35,10 +36,10 @@ function SettingsItem({
       style={[styles.settingsItem, { borderBottomColor: colors.border }]}
       activeOpacity={onPress ? 0.7 : 1}
     >
-      <Feather name={icon} size={18} color={destructive ? colors.danger : colors.textSecondary} />
+      <Icon name={icon} size={18} color={destructive ? colors.danger : colors.textSecondary} />
       <Text style={[styles.settingsLabel, { color: destructive ? colors.danger : colors.textPrimary }]}>{label}</Text>
       <View style={{ flexDirection: "row", alignItems: "center" }}>
-        {right ?? <Feather name="chevron-right" size={16} color={colors.border} />}
+        {right ?? <ChevronRight size={16} color={colors.border} />}
       </View>
     </TouchableOpacity>
   );
@@ -109,7 +110,7 @@ export default function ProfileScreen() {
         <Text style={[styles.userName, { color: colors.textPrimary }]}>{user?.name ?? "Usuário"}</Text>
         <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{user?.email ?? ""}</Text>
         <TouchableOpacity style={styles.editBtn}>
-          <Feather name="edit-2" size={14} color={colors.primary} />
+          <Pencil size={14} color={colors.primary} />
           <Text style={[styles.editBtnText, { color: colors.primary }]}>Editar perfil</Text>
         </TouchableOpacity>
       </View>
@@ -140,7 +141,7 @@ export default function ProfileScreen() {
       </Section>
 
       <TouchableOpacity onPress={handleLogout} style={[styles.logoutBtn, { borderColor: colors.border }]} testID="logout-btn">
-        <Feather name="log-out" size={18} color={colors.danger} />
+        <LogOut size={18} color={colors.danger} />
         <Text style={[styles.logoutText, { color: colors.danger }]}>Sair da conta</Text>
       </TouchableOpacity>
     </ScrollView>

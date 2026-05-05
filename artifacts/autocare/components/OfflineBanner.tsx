@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { WifiOff } from "lucide-react-native";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
@@ -12,7 +12,7 @@ export function OfflineBanner() {
 
   return (
     <View style={[styles.banner, { backgroundColor: colors.danger }]}>
-      <Feather name="wifi-off" size={14} color="#fff" />
+      <WifiOff size={14} color="#fff" />
       <Text style={styles.text}>Sem conexão – verifique sua internet</Text>
     </View>
   );

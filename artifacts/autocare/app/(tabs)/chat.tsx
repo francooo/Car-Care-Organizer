@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { ArrowLeft, ArrowUp, Clock, Cpu, MessageCircle, Mic, Plus, PlusCircle } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
   FlatList,
@@ -115,7 +115,7 @@ export default function ChatScreen() {
           { borderBottomColor: colors.border, paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16) },
         ]}>
           <TouchableOpacity onPress={() => setShowHistory(false)} style={styles.iconBtn}>
-            <Feather name="arrow-left" size={22} color={colors.textPrimary} />
+            <ArrowLeft size={22} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={[styles.headerName, { color: colors.textPrimary }]}>Histórico de Conversas</Text>
           <TouchableOpacity
@@ -123,7 +123,7 @@ export default function ChatScreen() {
             style={styles.iconBtn}
             testID="new-conversation-btn"
           >
-            <Feather name="plus" size={22} color={colors.primary} />
+            <Plus size={22} color={colors.primary} />
           </TouchableOpacity>
         </View>
         <FlatList
@@ -133,7 +133,7 @@ export default function ChatScreen() {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyHistory}>
-              <Feather name="message-circle" size={48} color={colors.border} />
+              <MessageCircle size={48} color={colors.border} />
               <Text style={[styles.emptyHistoryText, { color: colors.textSecondary }]}>
                 Nenhuma conversa ainda
               </Text>
@@ -163,7 +163,7 @@ export default function ChatScreen() {
         { borderBottomColor: colors.border, paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16) },
       ]}>
         <View style={[styles.aiAvatar, { backgroundColor: colors.primary }]}>
-          <Feather name="cpu" size={18} color="#fff" />
+          <Cpu size={18} color="#fff" />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerName, { color: colors.textPrimary }]}>Especialista AutoCare AI</Text>
@@ -172,10 +172,10 @@ export default function ChatScreen() {
           </Text>
         </View>
         <TouchableOpacity onPress={() => setShowHistory(true)} style={styles.iconBtn} testID="show-history-btn">
-          <Feather name="clock" size={20} color={colors.textSecondary} />
+          <Clock size={20} color={colors.textSecondary} />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => startConversation()} style={styles.iconBtn} testID="new-conv-btn">
-          <Feather name="plus-circle" size={20} color={colors.textSecondary} />
+          <PlusCircle size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -240,7 +240,7 @@ export default function ChatScreen() {
           accessibilityHint="Microfone para entrada por voz — funcionalidade em breve"
           testID="mic-btn"
         >
-          <Feather name="mic" size={18} color={colors.textSecondary} />
+          <Mic size={18} color={colors.textSecondary} />
         </TouchableOpacity>
         <RNTextInput
           value={text}
@@ -260,7 +260,7 @@ export default function ChatScreen() {
           activeOpacity={0.8}
           testID="send-btn"
         >
-          <Feather name="arrow-up" size={20} color="#fff" />
+          <ArrowUp size={20} color="#fff" />
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

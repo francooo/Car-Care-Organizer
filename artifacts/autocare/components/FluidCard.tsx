@@ -1,9 +1,10 @@
-import { Feather } from "@expo/vector-icons";
+import { PlayCircle } from "lucide-react-native";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { FluidReading, FluidType } from "@/store/vehicleStore";
 import { useColors } from "@/hooks/useColors";
-import { FeatherIconName } from "@/types/icons";
+import { Icon } from "@/components/Icon";
+import type { IconName } from "@/components/Icon";
 import { FluidLevelBar } from "./ui/FluidLevelBar";
 import { StatusBadge } from "./ui/StatusBadge";
 import spacing from "@/constants/spacing";
@@ -22,7 +23,7 @@ const FLUID_NAMES: Record<FluidType, string> = {
   battery: "Bateria",
 };
 
-const FLUID_ICONS: Record<FluidType, FeatherIconName> = {
+const FLUID_ICONS: Record<FluidType, IconName> = {
   oil: "droplet",
   coolant: "thermometer",
   brake: "disc",
@@ -60,7 +61,7 @@ export function FluidCard({ fluid, onGuidePress }: FluidCardProps) {
       <View style={styles.header}>
         <View style={styles.leftRow}>
           <View style={[styles.iconBox, { backgroundColor: iconBg }]}>
-            <Feather name={FLUID_ICONS[fluid.type]} size={20} color={iconColor} />
+            <Icon name={FLUID_ICONS[fluid.type]} size={20} color={iconColor} />
           </View>
           <View>
             <Text style={[styles.name, { color: colors.textPrimary }]}>{FLUID_NAMES[fluid.type]}</Text>
@@ -90,7 +91,7 @@ export function FluidCard({ fluid, onGuidePress }: FluidCardProps) {
           style={[styles.guideBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
           activeOpacity={0.8}
         >
-          <Feather name="play-circle" size={16} color={colors.primary} />
+          <PlayCircle size={16} color={colors.primary} />
           <Text style={[styles.guideBtnText, { color: colors.primary }]}>Ver guia animado</Text>
         </TouchableOpacity>
       )}

@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { Eye, EyeOff } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   KeyboardTypeOptions,
@@ -68,7 +68,10 @@ export function TextInput({
         />
         {isPassword && (
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-            <Feather name={showPassword ? "eye-off" : "eye"} size={18} color={colors.textSecondary} />
+            {showPassword
+              ? <EyeOff size={18} color={colors.textSecondary} />
+              : <Eye size={18} color={colors.textSecondary} />
+            }
           </TouchableOpacity>
         )}
       </View>

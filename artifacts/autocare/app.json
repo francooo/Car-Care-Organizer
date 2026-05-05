@@ -27,12 +27,7 @@
           "origin": "https://replit.com/"
         }
       ],
-      [
-        "expo-font",
-        {
-          "fonts": ["./assets/fonts/Feather.ttf"]
-        }
-      ],
+      "expo-font",
       "expo-web-browser",
       [
         "expo-notifications",

@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { AlertCircle, ChevronLeft, MessageCircle, Share2 } from "lucide-react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
 import {
@@ -57,7 +57,7 @@ export default function DiagnosticScreen() {
         paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16),
       }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
-          <Feather name="chevron-left" size={24} color={colors.textPrimary} />
+          <ChevronLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Diagnóstico</Text>
@@ -68,7 +68,7 @@ export default function DiagnosticScreen() {
           )}
         </View>
         <TouchableOpacity style={styles.iconBtn}>
-          <Feather name="share-2" size={20} color={colors.textSecondary} />
+          <Share2 size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -85,7 +85,7 @@ export default function DiagnosticScreen() {
 
         {fluids.length === 0 ? (
           <View style={styles.emptyFluids}>
-            <Feather name="alert-circle" size={48} color={colors.border} />
+            <AlertCircle size={48} color={colors.border} />
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               Nenhum dado de fluido disponível. Realize um scan do motor.
             </Text>
@@ -113,7 +113,7 @@ export default function DiagnosticScreen() {
           activeOpacity={0.85}
           testID="chat-specialist-btn"
         >
-          <Feather name="message-circle" size={20} color="#fff" />
+          <MessageCircle size={20} color="#fff" />
           <Text style={styles.chatFabText}>Perguntar ao Especialista IA</Text>
         </TouchableOpacity>
       </View>

@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { Plus, Truck, WifiOff } from "lucide-react-native";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
@@ -100,7 +100,7 @@ export default function GarageScreen() {
 
       {(isOffline || isStale) && (
         <View style={[styles.staleBanner, { backgroundColor: isOffline ? colors.danger : colors.warning }]}>
-          <Feather name="wifi-off" size={14} color="#fff" />
+          <WifiOff size={14} color="#fff" />
           <Text style={styles.staleBannerText}>
             {isOffline ? "Sem conexão – verifique sua internet" : "Exibindo dados em cache – puxe para atualizar"}
           </Text>
@@ -126,7 +126,7 @@ export default function GarageScreen() {
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Feather name="truck" size={64} color={colors.border} />
+            <Truck size={64} color={colors.border} />
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Sua garagem está vazia</Text>
             <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
               Adicione seu primeiro veículo para começar
@@ -159,7 +159,7 @@ export default function GarageScreen() {
         activeOpacity={0.85}
         testID="fab-add-vehicle"
       >
-        <Feather name="plus" size={28} color="#fff" />
+        <Plus size={28} color="#fff" />
       </TouchableOpacity>
     </View>
   );

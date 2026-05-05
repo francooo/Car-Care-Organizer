@@ -3,7 +3,7 @@ import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Tabs } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
-import { Feather } from "@expo/vector-icons";
+import { Camera, Home, MessageCircle, User } from "lucide-react-native";
 import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
@@ -78,7 +78,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="car" tintColor={color} size={24} />
             ) : (
-              <Feather name="home" size={22} color={color} />
+              <Home size={22} color={color} />
             ),
         }}
       />
@@ -90,7 +90,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="camera" tintColor={color} size={24} />
             ) : (
-              <Feather name="camera" size={22} color={color} />
+              <Camera size={22} color={color} />
             ),
         }}
       />
@@ -102,7 +102,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="message" tintColor={color} size={24} />
             ) : (
-              <Feather name="message-circle" size={22} color={color} />
+              <MessageCircle size={22} color={color} />
             ),
         }}
       />
@@ -114,7 +114,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="person" tintColor={color} size={24} />
             ) : (
-              <Feather name="user" size={22} color={color} />
+              <User size={22} color={color} />
             ),
         }}
       />

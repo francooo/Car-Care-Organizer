@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { ArrowLeft, ArrowRight, Check, ChevronLeft } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -15,9 +15,10 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FluidType } from "@/store/vehicleStore";
-import { FeatherIconName } from "@/types/icons";
 import { useColors } from "@/hooks/useColors";
 import { AlertCard } from "@/components/ui/AlertCard";
+import { Icon } from "@/components/Icon";
+import type { IconName } from "@/components/Icon";
 import spacing from "@/constants/spacing";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -26,7 +27,7 @@ interface Step {
   title: string;
   instruction: string;
   warning?: string;
-  icon: FeatherIconName;
+  icon: IconName;
   color?: string;
 }
 
@@ -129,7 +130,7 @@ const FLUID_STEPS: Record<string, Step[]> = {
       title: "Verifique os terminais",
       instruction: "Inspecione os terminais por sinais de corrosão (depósito esbranquiçado). Limpe com escova e solução de bicarbonato se necessário.",
       warning: "Desconecte sempre o terminal negativo primeiro.",
-      icon: "tool",
+      icon: "wrench",
     },
   ],
 };
@@ -143,7 +144,7 @@ const FLUID_NAMES: Record<string, string> = {
   battery: "Bateria",
 };
 
-function StepIconAnimation({ icon, color }: { icon: FeatherIconName; color: string }) {
+function StepIconAnimation({ icon, color }: { icon: IconName; color: string }) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
@@ -177,7 +178,7 @@ function StepIconAnimation({ icon, color }: { icon: FeatherIconName; color: stri
 
   return (
     <Animated.View style={{ transform: [{ scale: pulseAnim }, shouldRotate ? { rotate: spin } : { rotate: "0deg" }] }}>
-      <Feather name={icon} size={80} color={color} />
+      <Icon name={icon} size={80} color={color} />
     </Animated.View>
   );
 }
@@ -270,7 +271,7 @@ export default function GuideScreen() {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border, paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16) }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Feather name="chevron-left" size={24} color={colors.textPrimary} />
+            <ChevronLeft size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Guia: {fluidName}</Text>
           <View style={{ width: 40 }} />
@@ -278,7 +279,7 @@ export default function GuideScreen() {
 
         <View style={styles.completedContent}>
           <View style={[styles.checkCircle, { backgroundColor: colors.successLight }]}>
-            <Feather name="check" size={48} color={colors.success} />
+            <Check size={48} color={colors.success} />
           </View>
           <Text style={[styles.completedTitle, { color: colors.textPrimary }]}>Manutenção concluída!</Text>
           <Text style={[styles.completedSub, { color: colors.textSecondary }]}>
@@ -301,7 +302,7 @@ export default function GuideScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border, paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16) }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Feather name="chevron-left" size={24} color={colors.textPrimary} />
+          <ChevronLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Guia: {fluidName}</Text>
         <View style={{ width: 40 }} />
@@ -348,9 +349,9 @@ export default function GuideScreen() {
           {step.warning && <AlertCard message={step.warning} type="warning" />}
 
           <View style={styles.swipeHint}>
-            <Feather name="chevron-left" size={14} color={colors.textSecondary} style={{ opacity: currentStep === 0 ? 0.2 : 0.6 }} />
+            <ChevronLeft size={14} color={colors.textSecondary} style={{ opacity: currentStep === 0 ? 0.2 : 0.6 } as object} />
             <Text style={[styles.swipeHintText, { color: colors.textSecondary }]}>deslize para navegar</Text>
-            <Feather name="chevron-right" size={14} color={colors.textSecondary} style={{ opacity: currentStep === steps.length - 1 ? 0.2 : 0.6 }} />
+            <ArrowRight size={14} color={colors.textSecondary} style={{ opacity: currentStep === steps.length - 1 ? 0.2 : 0.6 } as object} />
           </View>
         </Animated.View>
       </View>
@@ -372,7 +373,7 @@ export default function GuideScreen() {
           activeOpacity={0.8}
           testID="prev-step-btn"
         >
-          <Feather name="arrow-left" size={18} color={colors.textPrimary} style={{ marginRight: 6 }} />
+          <ArrowLeft size={18} color={colors.textPrimary} style={{ marginRight: 6 } as object} />
           <Text style={[styles.navBtnText, { color: colors.textPrimary }]}>Anterior</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -384,12 +385,10 @@ export default function GuideScreen() {
           <Text style={[styles.navBtnText, { color: "#fff" }]}>
             {currentStep === steps.length - 1 ? "Concluir" : "Próximo"}
           </Text>
-          <Feather
-            name={currentStep === steps.length - 1 ? "check" : "arrow-right"}
-            size={18}
-            color="#fff"
-            style={{ marginLeft: 6 }}
-          />
+          {currentStep === steps.length - 1
+            ? <Check size={18} color="#fff" style={{ marginLeft: 6 } as object} />
+            : <ArrowRight size={18} color="#fff" style={{ marginLeft: 6 } as object} />
+          }
         </TouchableOpacity>
       </View>
     </View>

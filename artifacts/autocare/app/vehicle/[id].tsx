@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { Bell, Camera, ChevronLeft, Trash2 } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { persistPickedImage } from "@/lib/persistImage";
@@ -37,6 +37,8 @@ import {
   requestNotificationPermissions,
 } from "@/lib/notifications";
 import { getLastServiceDatesForVehicle } from "@/lib/historyUtils";
+import { Icon } from "@/components/Icon";
+import type { IconName } from "@/components/Icon";
 
 const FLUID_TYPES: FluidType[] = ["oil", "coolant", "brake", "power", "washer", "battery"];
 
@@ -244,7 +246,7 @@ export default function EditVehicleScreen() {
         ]}
       >
         <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
-          <Feather name="chevron-left" size={24} color={colors.textPrimary} />
+          <ChevronLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Editar Veículo</Text>
         <View style={{ width: 40 }} />
@@ -265,7 +267,7 @@ export default function EditVehicleScreen() {
             <Image source={{ uri: photoUri }} style={styles.photoPreview} />
           ) : (
             <>
-              <Feather name="camera" size={24} color={colors.textSecondary} />
+              <Camera size={24} color={colors.textSecondary} />
               <Text style={[styles.photoLabel, { color: colors.textSecondary }]}>
                 Trocar foto do veículo
               </Text>
@@ -310,7 +312,7 @@ export default function EditVehicleScreen() {
         />
 
         <View style={styles.sectionHeader}>
-          <Feather name="bell" size={16} color={colors.primary} />
+          <Bell size={16} color={colors.primary} />
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
             Lembretes de Manutenção
           </Text>
@@ -345,8 +347,8 @@ export default function EditVehicleScreen() {
                     },
                   ]}
                 >
-                  <Feather
-                    name={FLUID_ICONS[fluid] as keyof typeof Feather.glyphMap}
+                  <Icon
+                    name={FLUID_ICONS[fluid] as IconName}
                     size={16}
                     color={rem.enabled ? colors.primary : colors.textSecondary}
                   />
@@ -503,7 +505,7 @@ export default function EditVehicleScreen() {
           activeOpacity={0.75}
           testID="delete-vehicle-btn"
         >
-          <Feather name="trash-2" size={16} color={colors.danger} />
+          <Trash2 size={16} color={colors.danger} />
           <Text style={[styles.deleteBtnText, { color: colors.danger }]}>Excluir Veículo</Text>
         </TouchableOpacity>
       </ScrollView>

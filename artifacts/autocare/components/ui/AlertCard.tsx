@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { AlertCircle, AlertTriangle, Info } from "lucide-react-native";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
@@ -16,11 +16,12 @@ export function AlertCard({ message, type = "danger" }: AlertCardProps) {
 
   const bg = type === "danger" ? colors.dangerLight : type === "warning" ? colors.warningLight : colors.primaryLight;
   const iconColor = type === "danger" ? colors.danger : type === "warning" ? colors.warning : colors.primary;
-  const iconName = type === "danger" ? "alert-circle" : type === "warning" ? "alert-triangle" : "info";
+
+  const IconComponent = type === "danger" ? AlertCircle : type === "warning" ? AlertTriangle : Info;
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
-      <Feather name={iconName} size={18} color={iconColor} />
+      <IconComponent size={18} color={iconColor} />
       <Text style={[styles.text, { color: iconColor }]}>{message}</Text>
     </View>
   );

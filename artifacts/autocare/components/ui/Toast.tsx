@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { AlertCircle, CheckCircle } from "lucide-react-native";
 import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -48,7 +48,6 @@ export function Toast({ visible, message, duration = 2000, onHide, type = "succe
   if (!visible) return null;
 
   const backgroundColor = type === "error" ? colors.danger : colors.success;
-  const iconName = type === "error" ? "alert-circle" : "check-circle";
 
   return (
     <Animated.View
@@ -62,7 +61,10 @@ export function Toast({ visible, message, duration = 2000, onHide, type = "succe
         },
       ]}
     >
-      <Feather name={iconName} size={18} color="#fff" />
+      {type === "error"
+        ? <AlertCircle size={18} color="#fff" />
+        : <CheckCircle size={18} color="#fff" />
+      }
       <Text style={styles.message}>{message}</Text>
     </Animated.View>
   );

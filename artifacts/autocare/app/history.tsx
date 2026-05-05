@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { ChevronLeft, Clock } from "lucide-react-native";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -151,7 +151,7 @@ export default function HistoryScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { borderBottomColor: colors.border, paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16) }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
-          <Feather name="chevron-left" size={24} color={colors.textPrimary} />
+          <ChevronLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Histórico</Text>
         <View style={{ width: 40 }} />
@@ -184,7 +184,7 @@ export default function HistoryScreen() {
         </View>
       ) : sections.length === 0 ? (
         <View style={styles.emptyState}>
-          <Feather name="clock" size={64} color={colors.border} />
+          <Clock size={64} color={colors.border} />
           <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Nenhuma manutenção registrada</Text>
           <Text style={[styles.emptySub, { color: colors.textSecondary }]}>Faça um scan para registrar uma manutenção.</Text>
           <TouchableOpacity style={[styles.scanBtn, { backgroundColor: colors.primary }]} onPress={() => router.push("/(tabs)/scan")}>
