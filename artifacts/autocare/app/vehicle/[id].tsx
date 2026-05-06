@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { persistPickedImage } from "@/lib/persistImage";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Platform,
@@ -85,6 +86,7 @@ export default function EditVehicleScreen() {
   const [photoUri, setPhotoUri] = useState<string | undefined>(vehicle?.photoUri);
   const [currentKm, setCurrentKm] = useState(vehicle?.currentKm?.toString() ?? "");
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [showErrorToast, setShowErrorToast] = useState(false);
   const [errorToastMessage, setErrorToastMessage] = useState("Não foi possível atualizar o veículo. Tente novamente.");
@@ -221,12 +223,14 @@ export default function EditVehicleScreen() {
           text: "Excluir",
           style: "destructive",
           onPress: async () => {
+            setDeleting(true);
             try {
               await deleteVehicle(vehicle!.id);
               router.replace("/(tabs)");
             } catch {
               setErrorToastMessage("Não foi possível excluir o veículo. Tente novamente.");
               setShowErrorToast(true);
+              setDeleting(false);
             }
           },
         },
@@ -501,12 +505,19 @@ export default function EditVehicleScreen() {
 
         <TouchableOpacity
           onPress={handleDelete}
-          style={[styles.deleteBtn, { borderColor: colors.danger }]}
+          style={[styles.deleteBtn, { borderColor: colors.danger, opacity: deleting ? 0.5 : 1 }]}
           activeOpacity={0.75}
+          disabled={deleting}
           testID="delete-vehicle-btn"
         >
-          <Trash2 size={16} color={colors.danger} />
-          <Text style={[styles.deleteBtnText, { color: colors.danger }]}>Excluir Veículo</Text>
+          {deleting ? (
+            <ActivityIndicator size="small" color={colors.danger} />
+          ) : (
+            <Trash2 size={16} color={colors.danger} />
+          )}
+          <Text style={[styles.deleteBtnText, { color: colors.danger }]}>
+            {deleting ? "Excluindo..." : "Excluir Veículo"}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 
