@@ -188,30 +188,27 @@ export const useVehicleStore = create<VehicleState>((set, get) => ({
   updateVehicle: async (id, v) => {
     const token = useAuthStore.getState().token;
     if (token) {
-      try {
-        const res = await fetch(`${BASE_URL}/api/vehicles/${id}`, {
-          method: "PUT",
-          headers: authHeaders(),
-          body: JSON.stringify({
-            version: v.version,
-            nickname: v.nickname,
-            plate: v.plate,
-            photoUri: v.photoUri,
-            maintenanceSchedule: v.maintenanceSchedule,
-            currentKm: v.currentKm,
-            overallStatus: v.overallStatus,
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json() as ApiVehicle;
-          const updated = get().vehicles.map(veh =>
-            veh.id === id ? { ...veh, ...mapApiVehicle(data) } : veh
-          );
-          set({ vehicles: updated });
-          await persistCache(updated);
-          return;
-        }
-      } catch {}
+      const res = await fetch(`${BASE_URL}/api/vehicles/${id}`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          version: v.version,
+          nickname: v.nickname,
+          plate: v.plate,
+          photoUri: v.photoUri,
+          maintenanceSchedule: v.maintenanceSchedule,
+          currentKm: v.currentKm,
+          overallStatus: v.overallStatus,
+        }),
+      });
+      if (!res.ok) throw new Error("Não foi possível salvar as alterações. Tente novamente.");
+      const data = await res.json() as ApiVehicle;
+      const updated = get().vehicles.map(veh =>
+        veh.id === id ? { ...veh, ...mapApiVehicle(data) } : veh
+      );
+      set({ vehicles: updated });
+      await persistCache(updated);
+      return;
     }
 
     const updated = get().vehicles.map(veh => veh.id === id ? { ...veh, ...v } : veh);
