@@ -58,3 +58,4 @@ externalPort = 5000
 [userenv]
 
 [userenv.shared]
+GITHUB_TOKEN = "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"
