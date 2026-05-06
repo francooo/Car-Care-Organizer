@@ -230,6 +230,7 @@ export default function EditVehicleScreen() {
             } catch {
               setErrorToastMessage("Não foi possível excluir o veículo. Tente novamente.");
               setShowErrorToast(true);
+            } finally {
               setDeleting(false);
             }
           },
